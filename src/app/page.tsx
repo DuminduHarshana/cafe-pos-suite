@@ -1,101 +1,266 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import Navbar from "@/components/Navbar";
+import PosStation from "@/components/pos/PosStation";
+import KitchenDisplay from "@/components/kds/KitchenDisplay";
+import TableManager from "@/components/tables/TableManager";
+import InventoryManager from "@/components/inventory/InventoryManager";
+import MenuManager from "@/components/menu/MenuManager";
+import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
+import PinModal from "@/components/staff/PinModal";
+import PrinterSettingsModal from "@/components/settings/PrinterSettingsModal";
+import { Category, Table, Order, InventoryItem, Staff, ModifierGroup } from "@/types";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [activeTab, setActiveTab] = useState<"pos" | "kds" | "tables" | "inventory" | "menu" | "analytics">("pos");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [modifierGroups, setModifierGroups] = useState<ModifierGroup[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [inventory, setInventory] = useState<{
+    items: InventoryItem[];
+    stats: { totalItems: number; lowStockCount: number; totalValuation: number };
+  }>({
+    items: [],
+    stats: { totalItems: 0, lowStockCount: 0, totalValuation: 0 },
+  });
+  const [analytics, setAnalytics] = useState<{
+    metrics: { totalRevenue: number; totalOrders: number; avgTicket: number; totalTips: number; activeOrdersCount: number };
+    topItems: { name: string; count: number; revenue: number }[];
+    paymentMethods: Record<string, number>;
+    recentOrders: Order[];
+  }>({
+    metrics: { totalRevenue: 0, totalOrders: 0, avgTicket: 0, totalTips: 0, activeOrdersCount: 0 },
+    topItems: [],
+    paymentMethods: {},
+    recentOrders: [],
+  });
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [currentStaff, setCurrentStaff] = useState<Staff>({
+    id: "default",
+    name: "Julian Vance",
+    role: "ADMIN",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+  });
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Load Menu Data
+  const loadMenu = useCallback(async () => {
+    try {
+      const res = await fetch("/api/menu");
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data.categories || []);
+        setModifierGroups(data.modifierGroups || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Load Tables
+  const loadTables = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tables");
+      if (res.ok) {
+        const data = await res.json();
+        setTables(data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Load Orders
+  const loadOrders = useCallback(async () => {
+    try {
+      const res = await fetch("/api/orders");
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Load Inventory
+  const loadInventory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/inventory");
+      if (res.ok) {
+        const data = await res.json();
+        setInventory(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Load Analytics
+  const loadAnalytics = useCallback(async () => {
+    try {
+      const res = await fetch("/api/analytics");
+      if (res.ok) {
+        const data = await res.json();
+        setAnalytics(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Load Staff
+  const loadStaff = useCallback(async () => {
+    try {
+      const res = await fetch("/api/staff");
+      if (res.ok) {
+        const data = await res.json();
+        setStaffList(data || []);
+        if (data && data.length > 0) {
+          setCurrentStaff(data[0]);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Refresh all state
+  const refreshAll = useCallback(async () => {
+    await Promise.all([
+      loadMenu(),
+      loadTables(),
+      loadOrders(),
+      loadInventory(),
+      loadAnalytics(),
+    ]);
+  }, [loadMenu, loadTables, loadOrders, loadInventory, loadAnalytics]);
+
+  // Initial Load
+  useEffect(() => {
+    async function init() {
+      setIsLoading(true);
+      await Promise.all([
+        loadMenu(),
+        loadTables(),
+        loadOrders(),
+        loadInventory(),
+        loadAnalytics(),
+        loadStaff(),
+      ]);
+      setIsLoading(false);
+    }
+    init();
+  }, [loadMenu, loadTables, loadOrders, loadInventory, loadAnalytics, loadStaff]);
+
+  // Real-time synchronization polling every 5s for orders & tables
+  useEffect(() => {
+    const syncInterval = setInterval(() => {
+      loadOrders();
+      loadTables();
+      loadAnalytics();
+    }, 5000);
+    return () => clearInterval(syncInterval);
+  }, [loadOrders, loadTables, loadAnalytics]);
+
+  const activeOrdersCount = orders.filter((o) =>
+    ["PENDING", "PREPARING", "READY"].includes(o.status)
+  ).length;
+
+  const handleSelectTableForOrder = (table: Table) => {
+    setActiveTab("pos");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen bg-[#09090b] flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center animate-pulse">
+          <span className="font-mono font-extrabold text-base">AC</span>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          Loading Artisan Cafe &amp; Restaurant Suite...
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <main className="h-screen w-screen flex flex-col bg-[#09090b] text-neutral-100 overflow-hidden font-sans">
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        currentStaff={currentStaff}
+        onOpenPinModal={() => setIsPinModalOpen(true)}
+        onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
+        activeOrdersCount={activeOrdersCount}
+      />
+
+      {/* Dynamic View Panels */}
+      <div className="flex-1 overflow-hidden relative">
+        {activeTab === "pos" && (
+          <PosStation
+            categories={categories}
+            tables={tables}
+            currentStaff={currentStaff}
+            onOrderCreated={refreshAll}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        )}
+
+        {activeTab === "kds" && (
+          <KitchenDisplay
+            orders={orders}
+            onRefresh={refreshAll}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
+        )}
+
+        {activeTab === "tables" && (
+          <TableManager
+            tables={tables}
+            onSelectTableForOrder={handleSelectTableForOrder}
+            onRefresh={refreshAll}
           />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        )}
+
+        {activeTab === "inventory" && (
+          <InventoryManager
+            inventory={inventory}
+            onRefresh={refreshAll}
+          />
+        )}
+
+        {activeTab === "menu" && (
+          <MenuManager
+            categories={categories}
+            modifierGroups={modifierGroups}
+            onRefresh={refreshAll}
+          />
+        )}
+
+        {activeTab === "analytics" && (
+          <AnalyticsDashboard
+            analytics={analytics}
+            onRefresh={refreshAll}
+          />
+        )}
+      </div>
+
+      {/* Staff PIN Switching Modal */}
+      <PinModal
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        staffList={staffList}
+        onStaffSelected={(staff) => setCurrentStaff(staff)}
+      />
+
+      {/* ESC/POS Thermal Receipt & Kitchen Printer Settings */}
+      <PrinterSettingsModal
+        isOpen={isPrinterModalOpen}
+        onClose={() => setIsPrinterModalOpen(false)}
+      />
+    </main>
   );
 }

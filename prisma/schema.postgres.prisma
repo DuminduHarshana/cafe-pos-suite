@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Staff {
+  id        String   @id @default(cuid())
+  name      String
+  pin       String   @default("1234") // Fast 4-digit quick pin for POS
+  role      String   @default("CASHIER") // ADMIN, MANAGER, CASHIER, BARISTA, WAITER
+  active    Boolean  @default(true)
+  avatar    String?
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  icon      String     @default("Coffee") // Lucide icon name
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  items     MenuItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model MenuItem {
+  id               String               @id @default(cuid())
+  name             String
+  description      String?
+  price            Float
+  costPrice        Float                @default(0.0)
+  image            String?
+  categoryId       String
+  category         Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isAvailable      Boolean              @default(true) // Instant 86 out-of-stock toggle
+  prepTimeMinutes  Int                  @default(5)
+  barcode          String?
+  taxRate          Float                @default(0.08) // 8% default
+  orderItems       OrderItem[]
+  recipeItems      MenuItemIngredient[]
+  modifierGroups   ItemModifierGroup[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model ModifierGroup {
+  id           String               @id @default(cuid())
+  name         String               // e.g. "Milk Choice", "Sweetness", "Add-on Shot"
+  minSelection Int                  @default(0)
+  maxSelection Int                  @default(1)
+  isRequired   Boolean              @default(false)
+  options      ModifierOption[]
+  menuItems    ItemModifierGroup[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model ItemModifierGroup {
+  id              String        @id @default(cuid())
+  menuItemId      String
+  modifierGroupId String
+  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, modifierGroupId])
+}
+
+model ModifierOption {
+  id              String        @id @default(cuid())
+  name            String        // Whole Milk, Oat Milk, Almond Milk, +1 Espresso Shot
+  priceDelta      Float         @default(0.0)
+  modifierGroupId String
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model InventoryItem {
+  id             String                 @id @default(cuid())
+  name           String
+  sku            String                 @unique
+  category       String                 @default("BEANS") // BEANS, DAIRY, SYRUP, BAKERY, PACKAGING, KITCHEN
+  unit           String                 // kg, L, ml, pcs, g
+  currentStock   Float                  @default(0.0)
+  minStockAlert  Float                  @default(5.0)
+  costPerUnit    Float                  @default(0.0)
+  supplierName   String?
+  recipes        MenuItemIngredient[]
+  transactions   InventoryTransaction[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+}
+
+model MenuItemIngredient {
+  id              String        @id @default(cuid())
+  menuItemId      String
+  inventoryItemId String
+  quantity        Float         // Deduction quantity per order (e.g. 18g coffee beans, 250ml milk)
+  unit            String
+  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, inventoryItemId])
+}
+
+model InventoryTransaction {
+  id              String        @id @default(cuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  type            String        // RESTOCK, ORDER_DEDUCTION, WASTE, MANUAL_ADJUSTMENT
+  quantity        Float         // Positive for restock, negative for deduction
+  reason          String?
+  staffName       String?
+  createdAt       DateTime      @default(now())
+}
+
+model RestaurantTable {
+  id        String   @id @default(cuid())
+  number    String   @unique
+  name      String
+  section   String   @default("Indoor") // Indoor, Terrace, Bar, Private Booth
+  capacity  Int      @default(2)
+  status    String   @default("AVAILABLE") // AVAILABLE, OCCUPIED, RESERVED, BILLED
+  posX      Int      @default(0)
+  posY      Int      @default(0)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id            String           @id @default(cuid())
+  orderNumber   String           @unique
+  type          String           @default("DINE_IN") // DINE_IN, TAKEAWAY, DELIVERY
+  tableId       String?
+  table         RestaurantTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  status        String           @default("PENDING") // PENDING, PREPARING, READY, SERVED, COMPLETED, CANCELLED
+  paymentStatus String           @default("UNPAID") // UNPAID, PAID, REFUNDED
+  paymentMethod String?          // CASH, CARD, QR_APPLE_PAY, SPLIT
+  subtotal      Float            @default(0.0)
+  discount      Float            @default(0.0)
+  tax           Float            @default(0.0)
+  tip           Float            @default(0.0)
+  total         Float            @default(0.0)
+  customerName  String?
+  customerPhone String?
+  notes         String?
+  staffId       String?
+  staff         Staff?           @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  items         OrderItem[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model OrderItem {
+  id                String    @id @default(cuid())
+  orderId           String
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId        String
+  menuItem          MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  menuItemName      String
+  unitPrice         Float
+  quantity          Int       @default(1)
+  total             Float
+  notes             String?
+  status            String    @default("QUEUED") // QUEUED, PREPARING, READY, SERVED
+  selectedModifiers String?   // JSON serialized modifiers array
+  createdAt         DateTime  @default(now())
+}
+

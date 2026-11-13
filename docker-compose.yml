@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  # Cloud/Self-Hosted PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: cafe-pos-db
+    restart: always
+    environment:
+      POSTGRES_USER: cafe_admin
+      POSTGRES_PASSWORD: secure_pos_password_2026
+      POSTGRES_DB: cafe_pos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cafe_admin -d cafe_pos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Cafe POS & Restaurant Management Suite Web App
+  cafe-pos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cafe-pos-app
+    restart: always
+    ports:
+      - "3005:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://cafe_admin:secure_pos_password_2026@postgres:5432/cafe_pos_db?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+
