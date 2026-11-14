@@ -88,23 +88,29 @@ export async function POST(req: Request) {
           status: paymentStatus === "PAID" && type === "TAKEAWAY" ? "PREPARING" : "PENDING",
           items: {
             create: items.map((item: {
-              menuItemId: string;
-              menuItemName: string;
-              unitPrice: number;
-              quantity: number;
-              total: number;
+              menuItemId?: string;
+              menuItemName?: string;
+              unitPrice?: number;
+              quantity?: number;
+              total?: number;
+              subtotal?: number;
               notes?: string;
               selectedModifiers?: string[];
-            }) => ({
-              menuItemId: item.menuItemId,
-              menuItemName: item.menuItemName,
-              unitPrice: item.unitPrice,
-              quantity: item.quantity,
-              total: item.total,
-              notes: item.notes || null,
-              selectedModifiers: item.selectedModifiers ? JSON.stringify(item.selectedModifiers) : null,
-              status: "QUEUED",
-            })),
+            }) => {
+              const qty = parseInt(String(item.quantity)) || 1;
+              const price = parseFloat(String(item.unitPrice)) || 0;
+              const lineTotal = parseFloat(String(item.total ?? item.subtotal ?? (price * qty))) || 0;
+              return {
+                menuItemId: item.menuItemId || null,
+                menuItemName: item.menuItemName || "Menu Item",
+                unitPrice: price,
+                quantity: qty,
+                total: lineTotal,
+                notes: item.notes || null,
+                selectedModifiers: item.selectedModifiers ? JSON.stringify(item.selectedModifiers) : null,
+                status: "QUEUED",
+              };
+            }),
           },
         },
         include: {
