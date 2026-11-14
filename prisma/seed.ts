@@ -22,7 +22,7 @@ async function main() {
   // 2. Staff members
   const adminStaff = await prisma.staff.create({
     data: {
-      name: "Julian Vance",
+      name: "Milindu",
       pin: "1111",
       role: "ADMIN",
       avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
@@ -31,7 +31,7 @@ async function main() {
 
   const baristaStaff = await prisma.staff.create({
     data: {
-      name: "Mateo Silva",
+      name: "Barista",
       pin: "3333",
       role: "BARISTA",
       avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
@@ -40,7 +40,7 @@ async function main() {
 
   await prisma.staff.create({
     data: {
-      name: "Chloe Bennett",
+      name: "Cashier",
       pin: "4444",
       role: "CASHIER",
       avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",

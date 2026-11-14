@@ -9,9 +9,11 @@ import {
   FileSpreadsheet,
   BarChart3,
   Lock,
+  LogOut,
   Wifi,
   Sparkles,
   Printer,
+  Shield,
 } from "lucide-react";
 import { Staff } from "@/types";
 import { playSound } from "@/lib/sound";
@@ -21,6 +23,7 @@ interface NavbarProps {
   setActiveTab: (tab: "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics") => void;
   currentStaff: Staff;
   onOpenPinModal: () => void;
+  onLockStation?: () => void;
   activeOrdersCount: number;
   onOpenPrinterModal: () => void;
 }
@@ -30,6 +33,7 @@ export default function Navbar({
   setActiveTab,
   currentStaff,
   onOpenPinModal,
+  onLockStation,
   activeOrdersCount,
   onOpenPrinterModal,
 }: NavbarProps) {
@@ -52,18 +56,29 @@ export default function Navbar({
   }, []);
 
   const navItems = [
-    { id: "pos" as const, label: "POS Station", icon: Coffee },
+    { id: "pos" as const, label: "POS Station", icon: Coffee, adminOnly: false },
     {
       id: "kds" as const,
       label: "Kitchen KDS",
       icon: ChefHat,
       badge: activeOrdersCount > 0 ? activeOrdersCount : undefined,
+      adminOnly: false,
     },
-    { id: "tables" as const, label: "Floor & Tables", icon: LayoutGrid },
-    { id: "inventory" as const, label: "Inventory", icon: Boxes },
-    { id: "menu" as const, label: "Menu & Prices", icon: FileSpreadsheet },
-    { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
+    { id: "tables" as const, label: "Floor & Tables", icon: LayoutGrid, adminOnly: false },
+    { id: "inventory" as const, label: "Inventory", icon: Boxes, adminOnly: true },
+    { id: "menu" as const, label: "Menu & Prices", icon: FileSpreadsheet, adminOnly: true },
+    { id: "analytics" as const, label: "Analytics", icon: BarChart3, adminOnly: true },
   ];
+
+  const handleTabClick = (item: typeof navItems[number]) => {
+    playSound("tap");
+    if (item.adminOnly && currentStaff.role !== "ADMIN") {
+      // Prompt for Admin PIN
+      onOpenPinModal();
+      return;
+    }
+    setActiveTab(item.id);
+  };
 
   return (
     <header className="h-16 bg-[#121215] border-b border-neutral-800/80 px-4 flex items-center justify-between select-none shrink-0 z-30">
@@ -92,21 +107,26 @@ export default function Navbar({
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
+          const isLockedForRole = item.adminOnly && currentStaff.role !== "ADMIN";
+
           return (
             <button
               key={item.id}
-              onClick={() => {
-                playSound("tap");
-                setActiveTab(item.id);
-              }}
+              onClick={() => handleTabClick(item)}
+              title={isLockedForRole ? "Requires Admin PIN (Milindu)" : undefined}
               className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 isActive
                   ? "bg-amber-500 text-neutral-950 font-semibold shadow-md shadow-amber-500/20"
+                  : isLockedForRole
+                  ? "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/40 opacity-75"
                   : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60"
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? "text-neutral-950" : "text-neutral-400"}`} />
+              <Icon className={`w-4 h-4 ${isActive ? "text-neutral-950" : isLockedForRole ? "text-neutral-500" : "text-neutral-400"}`} />
               <span className="hidden md:inline">{item.label}</span>
+              {isLockedForRole && (
+                <Shield className="w-3 h-3 text-neutral-500 hidden sm:inline" />
+              )}
               {item.badge !== undefined && (
                 <span
                   className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
@@ -124,7 +144,7 @@ export default function Navbar({
       </nav>
 
       {/* Right side: Clock, Network, and Staff Switcher */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2.5">
         {/* Real-time Clock */}
         <div className="hidden lg:flex flex-col text-right">
           <span className="font-mono text-xs font-semibold text-neutral-200">{time}</span>
@@ -177,8 +197,22 @@ export default function Navbar({
               {currentStaff.role.toLowerCase()}
             </span>
           </div>
-          <Lock className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-300 ml-1" />
+          <Lock className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-300 ml-0.5" />
         </button>
+
+        {/* Quick Lock / Sign Out Button */}
+        {onLockStation && (
+          <button
+            onClick={() => {
+              playSound("tap");
+              onLockStation();
+            }}
+            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 transition"
+            title="Lock POS Terminal"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </header>
   );

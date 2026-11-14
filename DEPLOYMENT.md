@@ -139,13 +139,13 @@ Every Pull Request → Vercel creates a preview URL for testing.
 
 ---
 
-## Staff PINs (Demo Seed)
+## Staff PINs & Roles
 
-| Staff | PIN | Role |
-|-------|-----|------|
-| Julian Vance | `1111` | Admin |
-| Mateo Silva | `3333` | Barista |
-| Chloe Bennett | `4444` | Cashier |
+| Role | Name | PIN | Access Level |
+|---|---|---|---|
+| **Admin** | Milindu | `1111` | Full Access (POS, KDS, Tables, Inventory, Menu, Analytics) |
+| **Barista** | Barista | `3333` | Kitchen KDS, Floor & Tables, POS Station |
+| **Cashier** | Cashier | `4444` | POS Station, Floor & Tables, Kitchen KDS |
 
 ---
 

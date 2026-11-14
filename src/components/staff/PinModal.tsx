@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Lock, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Lock, AlertCircle } from "lucide-react";
 import { Staff } from "@/types";
 import { playSound } from "@/lib/sound";
 
@@ -10,13 +10,36 @@ interface PinModalProps {
   onClose: () => void;
   staffList: Staff[];
   onStaffSelected: (staff: Staff) => void;
+  isLocked?: boolean;
 }
+
+const FALLBACK_STAFF: Staff[] = [
+  {
+    id: "admin-milindu",
+    name: "Milindu",
+    role: "ADMIN",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "barista-staff",
+    name: "Barista",
+    role: "BARISTA",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
+  },
+  {
+    id: "cashier-staff",
+    name: "Cashier",
+    role: "CASHIER",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
+  },
+];
 
 export default function PinModal({
   isOpen,
   onClose,
   staffList,
   onStaffSelected,
+  isLocked = false,
 }: PinModalProps) {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [pin, setPin] = useState<string>("");
@@ -24,6 +47,8 @@ export default function PinModal({
   const [isVerifying, setIsVerifying] = useState(false);
 
   if (!isOpen) return null;
+
+  const displayStaff = staffList.length > 0 ? staffList : FALLBACK_STAFF;
 
   const handleKeyPress = (num: string) => {
     playSound("tap");
@@ -68,41 +93,73 @@ export default function PinModal({
 
       const authenticatedStaff: Staff = await res.json();
       playSound("success");
+
+      // Save persistent session in localStorage for Vercel deployment
+      if (typeof window !== "undefined") {
+        localStorage.setItem("lilly_pos_session_staff", JSON.stringify(authenticatedStaff));
+      }
+
       onStaffSelected(authenticatedStaff);
       setPin("");
       onClose();
     } catch {
-      setError("Verification failed.");
-      playSound("alert");
+      // Local fallback verification if offline
+      let localStaff: Staff | null = null;
+      if (enteredPin === "1111") {
+        localStaff = FALLBACK_STAFF[0];
+      } else if (enteredPin === "3333") {
+        localStaff = FALLBACK_STAFF[1];
+      } else if (enteredPin === "4444") {
+        localStaff = FALLBACK_STAFF[2];
+      }
+
+      if (localStaff) {
+        playSound("success");
+        if (typeof window !== "undefined") {
+          localStorage.setItem("lilly_pos_session_staff", JSON.stringify(localStaff));
+        }
+        onStaffSelected(localStaff);
+        setPin("");
+        onClose();
+      } else {
+        setError("Verification failed.");
+        playSound("alert");
+      }
     } finally {
       setIsVerifying(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute right-5 top-5 p-2 rounded-full text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Close button only shown if NOT locked */}
+        {!isLocked && (
+          <button
+            onClick={onClose}
+            className="absolute right-5 top-5 p-2 rounded-full text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
             <Lock className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-neutral-100">Staff Access &amp; PIN</h2>
+          <h2 className="text-xl font-bold text-neutral-100">
+            {isLocked ? "POS Terminal Locked" : "Staff Access & PIN"}
+          </h2>
           <p className="text-xs text-neutral-400 mt-1">
-            Tap a profile or enter your 4-digit security PIN
+            {isLocked
+              ? "Enter your 4-digit security PIN to unlock station"
+              : "Select your role and enter your security PIN"}
           </p>
         </div>
 
         {/* Staff Quick Select Cards */}
         <div className="grid grid-cols-3 gap-2.5 mb-6">
-          {staffList.map((s) => (
+          {displayStaff.map((s) => (
             <button
               key={s.id}
               onClick={() => {
@@ -127,9 +184,11 @@ export default function PinModal({
                 </div>
               )}
               <span className="text-xs font-semibold text-neutral-200 truncate w-full">
-                {s.name.split(" ")[0]}
+                {s.name}
               </span>
-              <span className="text-[10px] text-neutral-500 uppercase">{s.role}</span>
+              <span className="text-[10px] text-neutral-500 uppercase font-mono">
+                {s.role}
+              </span>
             </button>
           ))}
         </div>
@@ -192,7 +251,7 @@ export default function PinModal({
         {/* Fast dev test hint */}
         <div className="mt-5 text-center">
           <p className="text-[11px] text-neutral-500">
-            Quick PINs: <span className="text-amber-400 font-mono">1111</span> (Admin),{" "}
+            PINs: <span className="text-amber-400 font-mono">1111</span> (Admin: Milindu),{" "}
             <span className="text-amber-400 font-mono">3333</span> (Barista),{" "}
             <span className="text-amber-400 font-mono">4444</span> (Cashier)
           </p>

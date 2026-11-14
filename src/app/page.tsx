@@ -10,10 +10,20 @@ import MenuManager from "@/components/menu/MenuManager";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import PinModal from "@/components/staff/PinModal";
 import PrinterSettingsModal from "@/components/settings/PrinterSettingsModal";
-import { Category, Table, Order, InventoryItem, Staff, ModifierGroup } from "@/types";
+import { Category, ModifierGroup, Order, Table, InventoryItem, Staff } from "@/types";
+
+const DEFAULT_STAFF: Staff = {
+  id: "admin-milindu",
+  name: "Milindu",
+  role: "ADMIN",
+  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+};
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"pos" | "kds" | "tables" | "inventory" | "menu" | "analytics">("pos");
+  const [activeTab, setActiveTab] = useState<
+    "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics"
+  >("pos");
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [modifierGroups, setModifierGroups] = useState<ModifierGroup[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -36,14 +46,11 @@ export default function Home() {
     paymentMethods: {},
     recentOrders: [],
   });
+
   const [staffList, setStaffList] = useState<Staff[]>([]);
-  const [currentStaff, setCurrentStaff] = useState<Staff>({
-    id: "default",
-    name: "Julian Vance",
-    role: "ADMIN",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-  });
+  const [currentStaff, setCurrentStaff] = useState<Staff>(DEFAULT_STAFF);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isLockedStation, setIsLockedStation] = useState(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -113,14 +120,31 @@ export default function Home() {
     }
   }, []);
 
-  // Load Staff
+  // Load Staff & Restore Session
   const loadStaff = useCallback(async () => {
     try {
       const res = await fetch("/api/staff");
       if (res.ok) {
         const data = await res.json();
         setStaffList(data || []);
-        if (data && data.length > 0) {
+
+        // Restore persisted session from localStorage
+        const savedSession = typeof window !== "undefined" ? localStorage.getItem("lilly_pos_session_staff") : null;
+        if (savedSession) {
+          try {
+            const parsed: Staff = JSON.parse(savedSession);
+            const matched = data?.find((s: Staff) => s.id === parsed.id || s.name === parsed.name);
+            if (matched) {
+              setCurrentStaff(matched);
+            } else {
+              setCurrentStaff(parsed);
+            }
+          } catch {
+            if (data && data.length > 0) {
+              setCurrentStaff(data[0]);
+            }
+          }
+        } else if (data && data.length > 0) {
           setCurrentStaff(data[0]);
         }
       }
@@ -171,15 +195,41 @@ export default function Home() {
     ["PENDING", "PREPARING", "READY"].includes(o.status)
   ).length;
 
-  const handleSelectTableForOrder = (table: Table) => {
+  const handleSelectTableForOrder = () => {
     setActiveTab("pos");
+  };
+
+  const handleStaffSelected = (staff: Staff) => {
+    setCurrentStaff(staff);
+    setIsLockedStation(false);
+    setIsPinModalOpen(false);
+
+    // Save session in localStorage
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lilly_pos_session_staff", JSON.stringify(staff));
+    }
+
+    // Role-based landing view
+    if (staff.role === "BARISTA") {
+      setActiveTab("kds");
+    } else if (staff.role === "CASHIER") {
+      setActiveTab("pos");
+    }
+  };
+
+  const handleLockStation = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("lilly_pos_session_staff");
+    }
+    setIsLockedStation(true);
+    setIsPinModalOpen(true);
   };
 
   if (isLoading) {
     return (
       <div className="h-screen w-screen bg-[#09090b] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center animate-pulse">
-          <span className="font-mono font-extrabold text-base">AC</span>
+          <span className="font-mono font-extrabold text-base">LR</span>
         </div>
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
           Loading Lilly&apos;s Restaurant &amp; Cafe...
@@ -194,7 +244,11 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentStaff={currentStaff}
-        onOpenPinModal={() => setIsPinModalOpen(true)}
+        onOpenPinModal={() => {
+          setIsLockedStation(false);
+          setIsPinModalOpen(true);
+        }}
+        onLockStation={handleLockStation}
         onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
         activeOrdersCount={activeOrdersCount}
       />
@@ -248,12 +302,17 @@ export default function Home() {
         )}
       </div>
 
-      {/* Staff PIN Switching Modal */}
+      {/* Staff PIN Switching & Lock Modal */}
       <PinModal
         isOpen={isPinModalOpen}
-        onClose={() => setIsPinModalOpen(false)}
+        onClose={() => {
+          if (!isLockedStation) {
+            setIsPinModalOpen(false);
+          }
+        }}
         staffList={staffList}
-        onStaffSelected={(staff) => setCurrentStaff(staff)}
+        onStaffSelected={handleStaffSelected}
+        isLocked={isLockedStation}
       />
 
       {/* ESC/POS Thermal Receipt & Kitchen Printer Settings */}
