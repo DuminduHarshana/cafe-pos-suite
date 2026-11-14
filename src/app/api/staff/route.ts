@@ -24,26 +24,34 @@ const DEFAULT_STAFF = [
   },
 ];
 
+let staffChecked = false;
+
 async function ensureDefaultStaff() {
-  const count = await prisma.staff.count();
-  if (count === 0) {
-    for (const member of DEFAULT_STAFF) {
-      await prisma.staff.create({ data: member });
+  if (staffChecked) return;
+  try {
+    const count = await prisma.staff.count();
+    if (count === 0) {
+      for (const member of DEFAULT_STAFF) {
+        await prisma.staff.create({ data: member });
+      }
+    } else {
+      // Migrate any legacy demo staff names to the requested naming
+      await prisma.staff.updateMany({
+        where: { name: "Julian Vance" },
+        data: { name: "Milindu", role: "ADMIN", pin: "1111" },
+      });
+      await prisma.staff.updateMany({
+        where: { name: "Mateo Silva" },
+        data: { name: "Barista", role: "BARISTA", pin: "3333" },
+      });
+      await prisma.staff.updateMany({
+        where: { name: "Chloe Bennett" },
+        data: { name: "Cashier", role: "CASHIER", pin: "4444" },
+      });
     }
-  } else {
-    // Migrate any legacy demo staff names to the requested naming
-    await prisma.staff.updateMany({
-      where: { name: "Julian Vance" },
-      data: { name: "Milindu", role: "ADMIN", pin: "1111" },
-    });
-    await prisma.staff.updateMany({
-      where: { name: "Mateo Silva" },
-      data: { name: "Barista", role: "BARISTA", pin: "3333" },
-    });
-    await prisma.staff.updateMany({
-      where: { name: "Chloe Bennett" },
-      data: { name: "Cashier", role: "CASHIER", pin: "4444" },
-    });
+    staffChecked = true;
+  } catch (e) {
+    console.error("Failed checking staff seed:", e);
   }
 }
 

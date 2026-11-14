@@ -1,8 +1,21 @@
 import { prisma } from "@/lib/prisma";
 
+let categoriesChecked = false;
+let tablesChecked = false;
+let inventoryChecked = false;
+
 export async function ensureDefaultCategories() {
-  const catCount = await prisma.category.count();
-  if (catCount > 0) return;
+  if (categoriesChecked) return;
+  try {
+    const catCount = await prisma.category.count();
+    if (catCount > 0) {
+      categoriesChecked = true;
+      return;
+    }
+  } catch (e) {
+    console.error("Failed checking category count:", e);
+    return;
+  }
 
   // 1. Create Default Categories
   const catCoffee = await prisma.category.create({
@@ -187,11 +200,22 @@ export async function ensureDefaultCategories() {
       prepTimeMinutes: 8,
     },
   });
+
+  categoriesChecked = true;
 }
 
 export async function ensureDefaultTables() {
-  const tableCount = await prisma.restaurantTable.count();
-  if (tableCount > 0) return;
+  if (tablesChecked) return;
+  try {
+    const tableCount = await prisma.restaurantTable.count();
+    if (tableCount > 0) {
+      tablesChecked = true;
+      return;
+    }
+  } catch (e) {
+    console.error("Failed checking tables count:", e);
+    return;
+  }
 
   const defaultTables = [
     { number: "T1", name: "Table 1", section: "Main Hall", capacity: 2 },
@@ -216,11 +240,22 @@ export async function ensureDefaultTables() {
       },
     });
   }
+
+  tablesChecked = true;
 }
 
 export async function ensureDefaultInventory() {
-  const invCount = await prisma.inventoryItem.count();
-  if (invCount > 0) return;
+  if (inventoryChecked) return;
+  try {
+    const invCount = await prisma.inventoryItem.count();
+    if (invCount > 0) {
+      inventoryChecked = true;
+      return;
+    }
+  } catch (e) {
+    console.error("Failed checking inventory count:", e);
+    return;
+  }
 
   const defaultItems = [
     { name: "House Espresso Roast Beans", sku: "RAW-COF-001", category: "BEANS", unit: "kg", currentStock: 20.0, minStockAlert: 5.0, costPerUnit: 4800.0, supplierName: "Lilly's Roasters" },
@@ -234,4 +269,6 @@ export async function ensureDefaultInventory() {
   for (const item of defaultItems) {
     await prisma.inventoryItem.create({ data: item });
   }
+
+  inventoryChecked = true;
 }

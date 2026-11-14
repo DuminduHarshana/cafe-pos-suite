@@ -187,15 +187,22 @@ export default function Home() {
     init();
   }, [loadMenu, loadTables, loadOrders, loadInventory, loadAnalytics, loadStaff]);
 
-  // Real-time synchronization polling every 5s for orders & tables
+  // Real-time synchronization polling every 12s for active orders & tables (when tab is visible)
   useEffect(() => {
     const syncInterval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       loadOrders();
       loadTables();
-      loadAnalytics();
-    }, 5000);
+    }, 12000);
     return () => clearInterval(syncInterval);
-  }, [loadOrders, loadTables, loadAnalytics]);
+  }, [loadOrders, loadTables]);
+
+  // Lazy-load analytics when opening the Analytics tab to preserve serverless DB connections
+  useEffect(() => {
+    if (activeTab === "analytics") {
+      loadAnalytics();
+    }
+  }, [activeTab, loadAnalytics]);
 
   const activeOrdersCount = orders.filter((o) =>
     ["PENDING", "PREPARING", "READY"].includes(o.status)
