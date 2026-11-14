@@ -277,7 +277,7 @@ export default function ReceiptModal({ order, onClose, defaultView = "customer" 
               {/* KOT Header */}
               <div className="text-center space-y-1 mb-3 border-b-2 border-neutral-800 pb-2.5">
                 <div className="inline-block px-3 py-1 bg-neutral-900 text-neutral-100 text-xs font-black tracking-wider uppercase rounded-md mb-1">
-                  KITCHEN ORDER TICKET (KOT)
+                  {store.kotHeaderTitle || "KITCHEN ORDER TICKET (KOT)"}
                 </div>
                 <h3 className="text-base font-black tracking-wide text-neutral-950">
                   ORDER #{order.orderNumber}
@@ -295,23 +295,25 @@ export default function ReceiptModal({ order, onClose, defaultView = "customer" 
                     {tableLabel}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-neutral-600">Time:</span>
-                  <span className="font-bold text-neutral-900">
-                    {new Date(order.createdAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </span>
-                </div>
+                {store.showTimeOnKot !== false && (
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-neutral-600">Time:</span>
+                    <span className="font-bold text-neutral-900">
+                      {new Date(order.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-[10px]">
                   <span className="text-neutral-600">Date:</span>
                   <span className="text-neutral-800">
                     {new Date(order.createdAt).toLocaleDateString()}
                   </span>
                 </div>
-                {order.customerName && order.customerName.trim() && order.customerName.toLowerCase() !== "guest" && (
+                {store.showCustomerOnKot !== false && order.customerName && order.customerName.trim() && order.customerName.toLowerCase() !== "guest" && (
                   <div className="flex items-center justify-between text-[10px] pt-1 border-t border-neutral-300">
                     <span className="text-neutral-600 font-bold">Guest:</span>
                     <span className="font-bold text-neutral-950">{order.customerName}</span>
@@ -324,41 +326,49 @@ export default function ReceiptModal({ order, onClose, defaultView = "customer" 
                 <div className="text-[10px] font-bold uppercase text-neutral-500 tracking-wider">
                   Kitchen Items Checklist
                 </div>
-                {order.items.map((item, idx) => {
-                  let modifiers: string[] = [];
-                  if (item.selectedModifiers) {
-                    try {
-                      modifiers = JSON.parse(item.selectedModifiers);
-                    } catch {
-                      modifiers = [];
+                {(!order.items || order.items.length === 0) ? (
+                  <div className="py-3 text-center text-neutral-500 italic text-xs">
+                    (No kitchen items found)
+                  </div>
+                ) : (
+                  order.items.map((item, idx) => {
+                    let modifiers: string[] = [];
+                    if (item.selectedModifiers) {
+                      try {
+                        modifiers = typeof item.selectedModifiers === "string" 
+                          ? JSON.parse(item.selectedModifiers) 
+                          : item.selectedModifiers;
+                      } catch {
+                        modifiers = [];
+                      }
                     }
-                  }
-                  return (
-                    <div key={idx} className="border-b border-dashed border-neutral-300 pb-2">
-                      <div className="flex items-start text-xs font-black text-neutral-950">
-                        <span className="mr-2 text-neutral-500 font-normal">[ ]</span>
-                        <span className="font-extrabold text-sm">{item.quantity}x</span>
-                        <span className="ml-1.5 flex-1">{item.menuItemName}</span>
-                      </div>
-                      {modifiers.length > 0 && (
-                        <p className="text-[10px] font-bold text-amber-800 pl-8 mt-0.5">
-                          &gt;&gt; MODS: {modifiers.join(", ")}
-                        </p>
-                      )}
-                      {item.notes && (
-                        <div className="mt-1 pl-8">
-                          <span className="inline-block bg-neutral-300 text-neutral-900 font-bold px-1.5 py-0.5 rounded text-[9px]">
-                            NOTE: {item.notes}
-                          </span>
+                    return (
+                      <div key={idx} className="border-b border-dashed border-neutral-300 pb-2">
+                        <div className="flex items-start text-xs font-black text-neutral-950">
+                          <span className="mr-2 text-neutral-500 font-normal">[ ]</span>
+                          <span className="font-extrabold text-sm">{item.quantity}x</span>
+                          <span className="ml-1.5 flex-1">{item.menuItemName}</span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        {modifiers.length > 0 && (
+                          <p className="text-[10px] font-bold text-amber-800 pl-8 mt-0.5">
+                            &gt;&gt; MODS: {modifiers.join(", ")}
+                          </p>
+                        )}
+                        {store.showNotesOnKot !== false && item.notes && (
+                          <div className="mt-1 pl-8">
+                            <span className="inline-block bg-neutral-300 text-neutral-900 font-bold px-1.5 py-0.5 rounded text-[9px]">
+                              NOTE: {item.notes}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               {/* Special Order Instructions if any */}
-              {order.notes && (
+              {store.showNotesOnKot !== false && order.notes && (
                 <div className="bg-amber-100/90 border border-amber-300 text-amber-950 p-2.5 rounded-xl text-[10px] mb-3">
                   <span className="font-bold block uppercase">Order Notes:</span>
                   <span>{order.notes}</span>
@@ -367,7 +377,7 @@ export default function ReceiptModal({ order, onClose, defaultView = "customer" 
 
               {/* KOT Footer */}
               <div className="text-center pt-1 text-[9px] font-bold tracking-widest text-neutral-500 uppercase">
-                *** END OF KITCHEN ORDER ***
+                {store.kotFooterNote || "*** END OF KITCHEN ORDER ***"}
               </div>
             </div>
           )}

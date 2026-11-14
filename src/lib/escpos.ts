@@ -324,27 +324,34 @@ export function generateKitchenChitBytes(
 
   b.divider("=").alignLeft();
 
-  for (const item of order.items) {
-    b.size("double-height")
-      .bold(true)
-      .textLine(`[ ] ${item.quantity}x ${item.menuItemName}`)
-      .size("normal")
-      .bold(false);
+  const items = order.items && Array.isArray(order.items) ? order.items : [];
+  if (items.length === 0) {
+    b.textLine("(No items in ticket)").feed(1);
+  } else {
+    for (const item of items) {
+      b.size("double-height")
+        .bold(true)
+        .textLine(`[ ] ${item.quantity}x ${item.menuItemName}`)
+        .size("normal")
+        .bold(false);
 
-    if (item.selectedModifiers) {
-      try {
-        const mods = JSON.parse(item.selectedModifiers);
-        if (Array.isArray(mods) && mods.length > 0) {
-          b.bold(true).textLine(`    >> MODS: ${mods.join(", ")}`).bold(false);
-        }
-      } catch {}
+      if (item.selectedModifiers) {
+        try {
+          const mods = typeof item.selectedModifiers === "string" 
+            ? JSON.parse(item.selectedModifiers) 
+            : item.selectedModifiers;
+          if (Array.isArray(mods) && mods.length > 0) {
+            b.bold(true).textLine(`    >> MODS: ${mods.join(", ")}`).bold(false);
+          }
+        } catch {}
+      }
+
+      if (item.notes) {
+        b.bold(true).textLine(`    !! NOTE: ${item.notes}`).bold(false);
+      }
+
+      b.divider("-");
     }
-
-    if (item.notes) {
-      b.bold(true).textLine(`    !! NOTE: ${item.notes}`).bold(false);
-    }
-
-    b.divider("-");
   }
 
   if (order.notes) {

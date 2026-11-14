@@ -168,15 +168,19 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
-/* Print Styles for Realistic Thermal POS Receipt */
+/* Print Styles for Realistic Thermal POS Receipt & Kitchen KOT Chit */
 @media print {
   body * {
     visibility: hidden;
   }
-  #thermal-receipt, #thermal-receipt * {
+  #thermal-receipt,
+  #thermal-receipt *,
+  #kitchen-kot-chit,
+  #kitchen-kot-chit * {
     visibility: visible;
   }
-  #thermal-receipt {
+  #thermal-receipt,
+  #kitchen-kot-chit {
     position: fixed;
     left: 0;
     top: 0;
@@ -185,5 +189,7 @@ body {
     padding: 12px;
     background: white !important;
     color: black !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 }

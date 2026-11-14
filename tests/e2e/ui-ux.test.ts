@@ -150,5 +150,25 @@ describe("UI/UX & Frontend Brand Verification", () => {
     const navbarContent = fs.readFileSync(navbarPath, "utf-8");
     assert.ok(navbarContent.includes("safe-area-inset-top"), "Navbar must handle safe-area-inset-top");
   });
+
+  it("Thermal print stylesheet in globals.css makes #kitchen-kot-chit visible during printing", () => {
+    const cssPath = path.join(process.cwd(), "src", "app", "globals.css");
+    const cssContent = fs.readFileSync(cssPath, "utf-8");
+
+    assert.ok(cssContent.includes("#kitchen-kot-chit"), "globals.css print styles must include #kitchen-kot-chit");
+    assert.ok(cssContent.includes("#kitchen-kot-chit *"), "globals.css print styles must include #kitchen-kot-chit *");
+  });
+
+  it("SettingsHub allows viewing and editing Kitchen KOT Chit configuration and preview", () => {
+    const settingsPath = path.join(process.cwd(), "src", "components", "settings", "SettingsHub.tsx");
+    assert.ok(fs.existsSync(settingsPath));
+    const content = fs.readFileSync(settingsPath, "utf-8");
+
+    assert.ok(content.includes("Kitchen KOT Chit"), "SettingsHub must provide Kitchen KOT Chit tab");
+    assert.ok(content.includes("kotHeaderTitle"), "SettingsHub must allow editing kotHeaderTitle");
+    assert.ok(content.includes("kotFooterNote"), "SettingsHub must allow editing kotFooterNote");
+    assert.ok(content.includes("showCustomerOnKot"), "SettingsHub must allow toggling showCustomerOnKot");
+    assert.ok(content.includes("Kitchen KOT"), "SettingsHub must provide Kitchen KOT live preview");
+  });
 });
 

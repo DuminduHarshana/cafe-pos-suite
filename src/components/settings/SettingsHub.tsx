@@ -18,6 +18,7 @@ import {
   DollarSign,
   Eye,
   Sparkles,
+  UtensilsCrossed,
 } from "lucide-react";
 import { StoreSettings, ColorTheme } from "@/types";
 import {
@@ -51,7 +52,8 @@ const THEME_OPTIONS: { id: ColorTheme; name: string; hex: string; desc: string }
 ];
 
 export default function SettingsHub() {
-  const [activeTab, setActiveTab] = useState<"store" | "receipt" | "theme" | "printer">("store");
+  const [activeTab, setActiveTab] = useState<"store" | "receipt" | "kot" | "theme" | "printer">("store");
+  const [previewType, setPreviewType] = useState<"customer" | "kitchen">("customer");
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
   const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(DEFAULT_PRINTER_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
@@ -207,6 +209,7 @@ export default function SettingsHub() {
               onClick={() => {
                 playSound("tap");
                 setActiveTab("receipt");
+                setPreviewType("customer");
               }}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                 activeTab === "receipt"
@@ -215,7 +218,23 @@ export default function SettingsHub() {
               }`}
             >
               <Receipt className="w-3.5 h-3.5" />
-              <span>Receipt &amp; Tax Settings</span>
+              <span>Customer Receipt</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playSound("tap");
+                setActiveTab("kot");
+                setPreviewType("kitchen");
+              }}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+                activeTab === "kot"
+                  ? "bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60"
+              }`}
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5" />
+              <span>Kitchen KOT Chit</span>
             </button>
 
             <button
@@ -478,6 +497,103 @@ export default function SettingsHub() {
             </div>
           )}
 
+          {/* TAB: Kitchen KOT Chit Settings */}
+          {activeTab === "kot" && (
+            <div className="bg-[#141418] border border-neutral-800 rounded-3xl p-6 space-y-6 animate-in fade-in duration-200">
+              <div>
+                <h3 className="text-sm font-bold text-neutral-100 flex items-center space-x-2">
+                  <UtensilsCrossed className="w-4 h-4 text-amber-400" />
+                  <span>Kitchen Order Ticket (KOT) Configuration</span>
+                </h3>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Configure the headers, closing notes, and formatting of operational tickets sent to the kitchen.
+                </p>
+              </div>
+
+              {/* KOT Header Title */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-neutral-300 flex items-center space-x-1">
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>KOT Header Title Banner</span>
+                </label>
+                <input
+                  type="text"
+                  value={settings.kotHeaderTitle ?? "KITCHEN ORDER TICKET (KOT)"}
+                  onChange={(e) => handleChange("kotHeaderTitle", e.target.value)}
+                  placeholder="e.g. KITCHEN ORDER TICKET (KOT) or BARISTA TICKET"
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
+                <p className="text-[11px] text-neutral-500">
+                  Displayed at the very top of each kitchen printout and on-screen chit.
+                </p>
+              </div>
+
+              {/* KOT Footer Note */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-neutral-300 flex items-center space-x-1">
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>KOT Footer / Closing Note</span>
+                </label>
+                <input
+                  type="text"
+                  value={settings.kotFooterNote ?? "*** END OF KITCHEN ORDER ***"}
+                  onChange={(e) => handleChange("kotFooterNote", e.target.value)}
+                  placeholder="e.g. *** END OF KITCHEN ORDER *** or PLEASE EXPEDITE"
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              {/* Toggles */}
+              <div className="space-y-3 pt-2">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.showCustomerOnKot !== false}
+                    onChange={(e) => handleChange("showCustomerOnKot", e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-neutral-900 border-neutral-700"
+                  />
+                  <span className="text-xs text-neutral-200">Show Guest / Customer Name on ticket</span>
+                </label>
+
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.showTimeOnKot !== false}
+                    onChange={(e) => handleChange("showTimeOnKot", e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-neutral-900 border-neutral-700"
+                  />
+                  <span className="text-xs text-neutral-200">Show Order Timestamp on ticket</span>
+                </label>
+
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.showNotesOnKot !== false}
+                    onChange={(e) => handleChange("showNotesOnKot", e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-neutral-900 border-neutral-700"
+                  />
+                  <span className="text-xs text-neutral-200">Show Item Modifiers and Chef Notes</span>
+                </label>
+
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printerSettings.autoPrintKitchenChit}
+                    onChange={(e) => {
+                      const updated = { ...printerSettings, autoPrintKitchenChit: e.target.checked };
+                      setPrinterSettings(updated);
+                      saveStoredPrinterSettings(updated);
+                    }}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-neutral-900 border-neutral-700"
+                  />
+                  <span className="text-xs text-neutral-200 font-semibold text-amber-400">
+                    Auto-print KOT chit to thermal printer when order is held or sent to kitchen
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* TAB 3: Color Theme & UI */}
           {activeTab === "theme" && (
             <div className="bg-[#141418] border border-neutral-800 rounded-3xl p-6 space-y-6 animate-in fade-in duration-200">
@@ -720,120 +836,233 @@ export default function SettingsHub() {
           )}
         </div>
 
-        {/* Right: Live Interactive Thermal Receipt Preview */}
+        {/* Right: Live Interactive Thermal Receipt & KOT Preview */}
         <div className="hidden lg:flex flex-col w-96 p-6 border-l border-neutral-800/80 bg-[#0d0d10] overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider flex items-center space-x-1.5">
               <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span>Live Receipt Preview</span>
+              <span>Live Preview</span>
             </span>
             <span className="text-[10px] text-neutral-500 font-mono">
               {printerSettings.paperWidth}
             </span>
           </div>
 
-          {/* Thermal Receipt Paper Card */}
-          <div className="bg-neutral-100 text-neutral-900 font-mono text-[11px] p-5 rounded-2xl shadow-xl border border-neutral-300 space-y-3 select-none">
-            {/* Header */}
-            <div className="text-center space-y-1 pb-3 border-b border-neutral-300">
-              {settings.showLogoOnReceipt && settings.logoUrl && (
-                <div className="flex justify-center mb-1.5">
-                  <img
-                    src={settings.logoUrl}
-                    alt="Logo"
-                    className="w-14 h-14 rounded-full object-cover border border-neutral-300 shadow-sm"
-                  />
-                </div>
-              )}
-              <h4 className="font-extrabold text-xs tracking-wider uppercase">
-                {settings.storeName || "LILLY'S RESTAURANT & CAFE"}
-              </h4>
-              {settings.tagline && (
-                <p className="text-[9px] text-neutral-600">{settings.tagline}</p>
-              )}
-              <p className="text-[9px] text-neutral-600">
-                {settings.address || "No. 33, Galle Road, Balapitiya"}
-              </p>
-              <p className="text-[9px] text-neutral-600">
-                Tel: {settings.phone || "0777926230"}
-              </p>
-              <p className="text-[10px] font-bold text-neutral-700 mt-1">ORDER #1042</p>
-            </div>
-
-            {/* Meta */}
-            <div className="text-[9px] text-neutral-600 space-y-0.5 pb-2 border-b border-dashed border-neutral-300">
-              <div className="flex justify-between">
-                <span>Date:</span>
-                <span>{new Date().toLocaleDateString()} 12:45 PM</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Order Type:</span>
-                <span className="font-bold">DINE IN</span>
-              </div>
-              {settings.showTableOnReceipt && (
-                <div className="flex justify-between">
-                  <span>Table:</span>
-                  <span>T3 (Table 3)</span>
-                </div>
-              )}
-              {settings.showStaffOnReceipt && (
-                <div className="flex justify-between">
-                  <span>Server:</span>
-                  <span>Milindu</span>
-                </div>
-              )}
-            </div>
-
-            {/* Sample items */}
-            <div className="space-y-1.5 pb-2 border-b border-neutral-300">
-              <div className="flex justify-between">
-                <span>1x Artisanal Flat White</span>
-                <span className="font-bold">Rs. 950.00</span>
-              </div>
-              <div className="flex justify-between text-[9px] text-neutral-500 pl-2">
-                <span>+ Oat Milk (+Rs. 150)</span>
-                <span></span>
-              </div>
-              <div className="flex justify-between">
-                <span>1x Smashed Avocado Toast</span>
-                <span className="font-bold">Rs. 1,850.00</span>
-              </div>
-            </div>
-
-            {/* Totals */}
-            <div className="space-y-1 text-[10px] pt-1">
-              <div className="flex justify-between text-neutral-600">
-                <span>Subtotal:</span>
-                <span>Rs. 2,950.00</span>
-              </div>
-              <div className="flex justify-between text-neutral-600">
-                <span>Tax (SSCL {settings.taxRatePercent}%):</span>
-                <span>{formatCurrency(2950 * (settings.taxRatePercent / 100))}</span>
-              </div>
-              <div className="flex justify-between text-neutral-600">
-                <span>Service Charge ({settings.serviceChargePercent}%):</span>
-                <span>{formatCurrency(2950 * (settings.serviceChargePercent / 100))}</span>
-              </div>
-              <div className="flex justify-between font-extrabold text-xs pt-1 border-t border-dashed border-neutral-300">
-                <span>TOTAL:</span>
-                <span>
-                  {formatCurrency(
-                    2950 +
-                      2950 * (settings.taxRatePercent / 100) +
-                      2950 * (settings.serviceChargePercent / 100)
-                  )}
-                </span>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="text-center pt-3 border-t border-neutral-300 space-y-1 text-[9px] text-neutral-600">
-              <p className="font-medium">
-                {settings.receiptFooterNote || "Thank you for dining with us! Come again."}
-              </p>
-              <p className="text-[8px] text-neutral-500 font-mono">Powered by Lilly&apos;s Pro POS</p>
-            </div>
+          {/* Toggle between Customer Receipt and Kitchen KOT Chit */}
+          <div className="flex bg-neutral-900 p-1 rounded-xl border border-neutral-800 mb-4 text-xs font-bold shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                playSound("tap");
+                setPreviewType("customer");
+              }}
+              className={`flex-1 py-1.5 rounded-lg transition ${
+                previewType === "customer"
+                  ? "bg-amber-500 text-neutral-950 font-extrabold shadow-sm"
+                  : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              Customer Receipt
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                playSound("tap");
+                setPreviewType("kitchen");
+              }}
+              className={`flex-1 py-1.5 rounded-lg transition ${
+                previewType === "kitchen"
+                  ? "bg-amber-500 text-neutral-950 font-extrabold shadow-sm"
+                  : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              Kitchen KOT
+            </button>
           </div>
+
+          {previewType === "customer" ? (
+            /* Thermal Receipt Paper Card */
+            <div className="bg-neutral-100 text-neutral-900 font-mono text-[11px] p-5 rounded-2xl shadow-xl border border-neutral-300 space-y-3 select-none">
+              {/* Header */}
+              <div className="text-center space-y-1 pb-3 border-b border-neutral-300">
+                {settings.showLogoOnReceipt && settings.logoUrl && (
+                  <div className="flex justify-center mb-1.5">
+                    <img
+                      src={settings.logoUrl}
+                      alt="Logo"
+                      className="w-14 h-14 rounded-full object-cover border border-neutral-300 shadow-sm"
+                    />
+                  </div>
+                )}
+                <h4 className="font-extrabold text-xs tracking-wider uppercase">
+                  {settings.storeName || "LILLY'S RESTAURANT & CAFE"}
+                </h4>
+                {settings.tagline && (
+                  <p className="text-[9px] text-neutral-600">{settings.tagline}</p>
+                )}
+                <p className="text-[9px] text-neutral-600">
+                  {settings.address || "No. 33, Galle Road, Balapitiya"}
+                </p>
+                <p className="text-[9px] text-neutral-600">
+                  Tel: {settings.phone || "0777926230"}
+                </p>
+                <p className="text-[10px] font-bold text-neutral-700 mt-1">ORDER #1042</p>
+              </div>
+
+              {/* Meta */}
+              <div className="text-[9px] text-neutral-600 space-y-0.5 pb-2 border-b border-dashed border-neutral-300">
+                <div className="flex justify-between">
+                  <span>Date:</span>
+                  <span>{new Date().toLocaleDateString()} 12:45 PM</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Order Type:</span>
+                  <span className="font-bold">DINE IN</span>
+                </div>
+                {settings.showTableOnReceipt && (
+                  <div className="flex justify-between">
+                    <span>Table:</span>
+                    <span>T3 (Table 3)</span>
+                  </div>
+                )}
+                {settings.showStaffOnReceipt && (
+                  <div className="flex justify-between">
+                    <span>Server:</span>
+                    <span>Milindu</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Sample items */}
+              <div className="space-y-1.5 pb-2 border-b border-neutral-300">
+                <div className="flex justify-between">
+                  <span>1x Artisanal Flat White</span>
+                  <span className="font-bold">Rs. 950.00</span>
+                </div>
+                <div className="flex justify-between text-[9px] text-neutral-500 pl-2">
+                  <span>+ Oat Milk (+Rs. 150)</span>
+                  <span></span>
+                </div>
+                <div className="flex justify-between">
+                  <span>1x Smashed Avocado Toast</span>
+                  <span className="font-bold">Rs. 1,850.00</span>
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-1 text-[10px] pt-1">
+                <div className="flex justify-between text-neutral-600">
+                  <span>Subtotal:</span>
+                  <span>Rs. 2,950.00</span>
+                </div>
+                <div className="flex justify-between text-neutral-600">
+                  <span>Tax (SSCL {settings.taxRatePercent}%):</span>
+                  <span>{formatCurrency(2950 * (settings.taxRatePercent / 100))}</span>
+                </div>
+                <div className="flex justify-between text-neutral-600">
+                  <span>Service Charge ({settings.serviceChargePercent}%):</span>
+                  <span>{formatCurrency(2950 * (settings.serviceChargePercent / 100))}</span>
+                </div>
+                <div className="flex justify-between font-extrabold text-xs pt-1 border-t border-dashed border-neutral-300">
+                  <span>TOTAL:</span>
+                  <span>
+                    {formatCurrency(
+                      2950 +
+                        2950 * (settings.taxRatePercent / 100) +
+                        2950 * (settings.serviceChargePercent / 100)
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="text-center pt-3 border-t border-neutral-300 space-y-1 text-[9px] text-neutral-600">
+                <p className="font-medium">
+                  {settings.receiptFooterNote || "Thank you for dining with us! Come again."}
+                </p>
+                <p className="text-[8px] text-neutral-500 font-mono">Powered by Lilly&apos;s Pro POS</p>
+              </div>
+            </div>
+          ) : (
+            /* Kitchen KOT Chit Paper Card */
+            <div className="bg-neutral-100 text-neutral-900 font-mono text-[11px] p-5 rounded-2xl shadow-xl border-2 border-neutral-400 space-y-3 select-none">
+              {/* Header */}
+              <div className="text-center space-y-1 pb-2.5 border-b-2 border-neutral-800">
+                <div className="inline-block px-2.5 py-0.5 bg-neutral-900 text-neutral-100 text-[10px] font-black tracking-wider uppercase rounded">
+                  {settings.kotHeaderTitle || "KITCHEN ORDER TICKET (KOT)"}
+                </div>
+                <h4 className="font-black text-sm tracking-wide text-neutral-950">
+                  ORDER #1042
+                </h4>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">
+                  TYPE: DINE IN
+                </p>
+              </div>
+
+              {/* Meta */}
+              <div className="bg-neutral-200/90 rounded-xl p-2.5 border border-neutral-300 space-y-1 text-[10px]">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-neutral-600">Table:</span>
+                  <span className="font-black text-xs text-neutral-950">Table 3 (T-3)</span>
+                </div>
+                {settings.showTimeOnKot !== false && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-600">Time:</span>
+                    <span className="font-bold text-neutral-900">12:45:10 PM</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-600">Date:</span>
+                  <span className="text-neutral-800">{new Date().toLocaleDateString()}</span>
+                </div>
+                {settings.showCustomerOnKot !== false && (
+                  <div className="flex items-center justify-between pt-1 border-t border-neutral-300">
+                    <span className="font-bold text-neutral-600">Guest:</span>
+                    <span className="font-bold text-neutral-950">Sarah W.</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Checklist Items */}
+              <div className="space-y-2 pb-2.5 border-b-2 border-neutral-800">
+                <div className="text-[9px] font-bold uppercase text-neutral-500 tracking-wider">
+                  Kitchen Items Checklist
+                </div>
+                <div className="border-b border-dashed border-neutral-300 pb-1.5">
+                  <div className="flex items-start text-xs font-black text-neutral-950">
+                    <span className="mr-1.5 text-neutral-500 font-normal">[ ]</span>
+                    <span className="font-extrabold">1x</span>
+                    <span className="ml-1 flex-1">Artisanal Flat White</span>
+                  </div>
+                  {settings.showNotesOnKot !== false && (
+                    <p className="text-[9px] font-bold text-amber-800 pl-6 mt-0.5">
+                      &gt;&gt; MODS: Oat Milk
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-start text-xs font-black text-neutral-950">
+                    <span className="mr-1.5 text-neutral-500 font-normal">[ ]</span>
+                    <span className="font-extrabold">1x</span>
+                    <span className="ml-1 flex-1">Smashed Avocado Toast</span>
+                  </div>
+                  {settings.showNotesOnKot !== false && (
+                    <div className="mt-0.5 pl-6">
+                      <span className="inline-block bg-neutral-300 text-neutral-900 font-bold px-1 py-0.2 rounded text-[8px]">
+                        NOTE: Extra crispy sourdough
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* KOT Footer Note */}
+              <div className="text-center pt-1 text-[9px] font-bold tracking-widest text-neutral-500 uppercase">
+                {settings.kotFooterNote || "*** END OF KITCHEN ORDER ***"}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

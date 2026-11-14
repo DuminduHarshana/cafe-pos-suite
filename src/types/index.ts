@@ -163,4 +163,10 @@ export interface StoreSettings {
   showLogoOnReceipt: boolean;
   showTableOnReceipt: boolean;
   showStaffOnReceipt: boolean;
+  // Kitchen KOT Chit Settings
+  kotHeaderTitle?: string;
+  kotFooterNote?: string;
+  showCustomerOnKot?: boolean;
+  showTimeOnKot?: boolean;
+  showNotesOnKot?: boolean;
 }

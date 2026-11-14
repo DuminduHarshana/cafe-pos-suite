@@ -246,8 +246,24 @@ export default function PosStation({
       if (!res.ok) throw new Error("Order creation failed");
 
       const createdOrder: Order = await res.json();
+      const safeItems = (createdOrder.items && createdOrder.items.length > 0)
+        ? createdOrder.items
+        : payload.items.map((i, idx) => ({
+            id: `item-${idx}`,
+            menuItemId: i.menuItemId || "",
+            menuItemName: i.menuItemName,
+            unitPrice: i.unitPrice,
+            quantity: i.quantity,
+            total: i.total,
+            notes: i.notes || null,
+            status: "QUEUED",
+            selectedModifiers: i.selectedModifiers ? JSON.stringify(i.selectedModifiers) : null,
+          }));
+
       const orderWithService: Order = {
         ...createdOrder,
+        items: safeItems,
+        table: createdOrder.table || (selectedTableId ? tables.find((t) => t.id === selectedTableId) || null : null),
         serviceCharge: appliedServiceCharge,
         serviceChargeRate: serviceChargeRate,
       };
@@ -308,8 +324,24 @@ export default function PosStation({
       if (!res.ok) throw new Error("Send to kitchen failed");
 
       const createdOrder: Order = await res.json();
+      const safeItems = (createdOrder.items && createdOrder.items.length > 0)
+        ? createdOrder.items
+        : payload.items.map((i, idx) => ({
+            id: `item-${idx}`,
+            menuItemId: i.menuItemId || "",
+            menuItemName: i.menuItemName,
+            unitPrice: i.unitPrice,
+            quantity: i.quantity,
+            total: i.total,
+            notes: i.notes || null,
+            status: "QUEUED",
+            selectedModifiers: i.selectedModifiers ? JSON.stringify(i.selectedModifiers) : null,
+          }));
+
       const orderWithService: Order = {
         ...createdOrder,
+        items: safeItems,
+        table: createdOrder.table || (selectedTableId ? tables.find((t) => t.id === selectedTableId) || null : null),
         serviceCharge: serviceChargeAmount,
         serviceChargeRate: serviceChargeRate,
       };

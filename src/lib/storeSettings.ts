@@ -14,6 +14,11 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   showLogoOnReceipt: true,
   showTableOnReceipt: true,
   showStaffOnReceipt: true,
+  kotHeaderTitle: "KITCHEN ORDER TICKET (KOT)",
+  kotFooterNote: "*** END OF KITCHEN ORDER ***",
+  showCustomerOnKot: true,
+  showTimeOnKot: true,
+  showNotesOnKot: true,
 };
 
 const STORAGE_KEY = "lilly_pos_store_settings";
