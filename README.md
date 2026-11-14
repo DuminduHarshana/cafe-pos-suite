@@ -130,3 +130,4 @@ npm run build
 npx next start -p 3005
 # Open http://localhost:3005 in your browser or tablet
 ```
+# cafe-pos-suite
