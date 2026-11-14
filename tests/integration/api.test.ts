@@ -134,6 +134,17 @@ describe("API Integration Suite", () => {
       });
       assert.equal(res.status, 200);
     });
+
+    it("POST /api/categories rejects empty category name with 400", async () => {
+      const res = await fetch(`${BASE_URL}/api/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "   ", icon: "Tag" }),
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.error, "Category name is required");
+    });
   });
 
   // 3. Menu Item CRUD
@@ -195,6 +206,20 @@ describe("API Integration Suite", () => {
         method: "DELETE",
       });
       assert.equal(res.status, 200);
+    });
+
+    it("POST /api/menu rejects empty item name with 400", async () => {
+      const res = await fetch(`${BASE_URL}/api/menu`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "  ",
+          price: 500,
+        }),
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.error, "Item name is required");
     });
   });
 
@@ -318,6 +343,127 @@ describe("API Integration Suite", () => {
       const stillExists = orders.some((o: { id: string }) => o.id === testOrderId);
       assert.equal(stillExists, false, "Order must be completely deleted from database");
     });
+
+    it("POST /api/orders rejects empty items array with 400", async () => {
+      const res = await fetch(`${BASE_URL}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderType: "TAKEAWAY",
+          items: [],
+        }),
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.error, "Order must contain at least one item");
+    });
+
+    it("POST /api/orders creates a Takeaway order with paid status and customer name", async () => {
+      const menuRes = await fetch(`${BASE_URL}/api/menu`);
+      const menuData = await menuRes.json();
+      const firstItem = menuData.categories.flatMap((c: { items: any[] }) => c.items)[0];
+
+      const res = await fetch(`${BASE_URL}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "TAKEAWAY",
+          customerName: "Sarah Connor",
+          customerPhone: "0771234567",
+          paymentMethod: "CARD",
+          paymentStatus: "PAID",
+          subtotal: firstItem.price,
+          discount: 0,
+          tax: 0,
+          tip: 50,
+          total: firstItem.price + 50,
+          items: [
+            {
+              menuItemId: firstItem.id,
+              menuItemName: firstItem.name,
+              quantity: 2,
+              unitPrice: firstItem.price,
+              total: firstItem.price * 2,
+            },
+          ],
+        }),
+      });
+
+      assert.equal(res.status, 201);
+      const order = await res.json();
+      assert.equal(order.type, "TAKEAWAY");
+      assert.equal(order.customerName, "Sarah Connor");
+      assert.equal(order.status, "PREPARING");
+      assert.equal(order.tableId, null);
+    });
+
+    it("PATCH /api/orders transitions order through full lifecycle (PENDING -> PREPARING -> READY -> COMPLETED)", async () => {
+      // 1. Find a table
+      const tablesRes = await fetch(`${BASE_URL}/api/tables`);
+      const tables = await tablesRes.json();
+      const table = tables[0];
+
+      const menuRes = await fetch(`${BASE_URL}/api/menu`);
+      const menuData = await menuRes.json();
+      const firstItem = menuData.categories.flatMap((c: { items: any[] }) => c.items)[0];
+
+      // 2. Create Dine-In order
+      const createRes = await fetch(`${BASE_URL}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "DINE_IN",
+          tableId: table.id,
+          subtotal: firstItem.price,
+          total: firstItem.price,
+          items: [
+            {
+              menuItemId: firstItem.id,
+              menuItemName: firstItem.name,
+              quantity: 1,
+              unitPrice: firstItem.price,
+              total: firstItem.price,
+            },
+          ],
+        }),
+      });
+      const order = await createRes.json();
+
+      // 3. Verify table is OCCUPIED
+      const t1Res = await fetch(`${BASE_URL}/api/tables`);
+      const t1Data = await t1Res.json();
+      const t1 = t1Data.find((t: { id: string }) => t.id === table.id);
+      assert.equal(t1.status, "OCCUPIED");
+
+      // 4. Update to PREPARING
+      const prepRes = await fetch(`${BASE_URL}/api/orders`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: order.id, status: "PREPARING" }),
+      });
+      assert.equal(prepRes.status, 200);
+
+      // 5. Update to READY
+      const readyRes = await fetch(`${BASE_URL}/api/orders`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: order.id, status: "READY" }),
+      });
+      assert.equal(readyRes.status, 200);
+
+      // 6. Complete order & verify table is released to AVAILABLE
+      const compRes = await fetch(`${BASE_URL}/api/orders`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: order.id, status: "COMPLETED", paymentStatus: "PAID" }),
+      });
+      assert.equal(compRes.status, 200);
+
+      const t2Res = await fetch(`${BASE_URL}/api/tables`);
+      const t2Data = await t2Res.json();
+      const t2 = t2Data.find((t: { id: string }) => t.id === table.id);
+      assert.equal(t2.status, "AVAILABLE", "Table must be released to AVAILABLE when order is completed");
+    });
   });
 
   // 5. Inventory Management CRUD
@@ -381,6 +527,26 @@ describe("API Integration Suite", () => {
       assert.equal(res.status, 400);
       const result = await res.json();
       assert.equal(result.error, "Missing print buffer");
+    });
+  });
+
+  // 7. Analytics & Reporting API
+  describe("Analytics & Metrics API", () => {
+    it("GET /api/analytics returns business metrics and breakdowns", async () => {
+      const res = await fetch(`${BASE_URL}/api/analytics`);
+      assert.equal(res.status, 200);
+      const data = await res.json();
+
+      assert.ok(data.metrics, "Analytics must return metrics");
+      assert.equal(typeof data.metrics.totalRevenue, "number");
+      assert.equal(typeof data.metrics.totalOrders, "number");
+      assert.equal(typeof data.metrics.avgTicket, "number");
+      assert.equal(typeof data.metrics.totalTips, "number");
+      assert.equal(typeof data.metrics.activeOrdersCount, "number");
+
+      assert.ok(Array.isArray(data.topItems), "Analytics must return topItems array");
+      assert.ok(typeof data.paymentMethods === "object", "Analytics must return paymentMethods breakdown");
+      assert.ok(Array.isArray(data.recentOrders), "Analytics must return recentOrders array");
     });
   });
 });

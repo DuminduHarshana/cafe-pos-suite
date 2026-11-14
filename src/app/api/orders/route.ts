@@ -62,12 +62,20 @@ export async function POST(req: Request) {
       items,
     } = body;
 
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "Order must contain at least one item" }, { status: 400 });
+    }
+
     // Generate unique order number (e.g., ORD-7821)
     const count = await prisma.order.count();
     const orderNumber = `ORD-${String(2000 + count + 1).padStart(4, "0")}`;
 
     // Execute order creation and stock deductions in transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Resolve fallback menuItemId in case custom line item doesn't have one
+      const fallbackMenuItem = await tx.menuItem.findFirst();
+      const fallbackId = fallbackMenuItem ? fallbackMenuItem.id : "";
+
       // 1. Create order record
       const order = await tx.order.create({
         data: {
@@ -100,8 +108,9 @@ export async function POST(req: Request) {
               const qty = parseInt(String(item.quantity)) || 1;
               const price = parseFloat(String(item.unitPrice)) || 0;
               const lineTotal = parseFloat(String(item.total ?? item.subtotal ?? (price * qty))) || 0;
+              const resolvedMenuItemId = item.menuItemId || fallbackId;
               return {
-                menuItemId: item.menuItemId || null,
+                menuItemId: resolvedMenuItemId,
                 menuItemName: item.menuItemName || "Menu Item",
                 unitPrice: price,
                 quantity: qty,

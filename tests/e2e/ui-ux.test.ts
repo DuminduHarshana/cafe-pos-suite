@@ -194,5 +194,36 @@ describe("UI/UX & Frontend Brand Verification", () => {
     assert.ok(navbarContent.includes("Offline"), "Navbar must have offline state display");
     assert.ok(navbarContent.includes("handleManualSync") || navbarContent.includes("syncOfflineOrders"), "Navbar must support offline sync");
   });
+
+  it("PWA Manifest should be valid and serve standalone display configuration", async () => {
+    const res = await fetch(`${BASE_URL}/manifest.json`);
+    assert.equal(res.status, 200);
+    const manifest = await res.json();
+
+    assert.equal(manifest.name, "Lilly's Restaurant & Cafe - POS");
+    assert.equal(manifest.short_name, "Lilly's POS");
+    assert.equal(manifest.display, "standalone");
+    assert.ok(Array.isArray(manifest.icons));
+    assert.ok(manifest.icons.length >= 2);
+  });
+
+  it("Store Settings provides all 8 theme palettes and full customization options", () => {
+    const settingsHubPath = path.join(process.cwd(), "src", "components", "settings", "SettingsHub.tsx");
+    assert.ok(fs.existsSync(settingsHubPath));
+    const content = fs.readFileSync(settingsHubPath, "utf-8");
+
+    const expectedThemes = ["amber", "emerald", "rose", "blue", "purple", "cyan", "orange", "neutral"];
+    for (const theme of expectedThemes) {
+      assert.ok(content.includes(`id: "${theme}"`), `Theme "${theme}" must be defined in SettingsHub`);
+    }
+
+    const storeSettingsPath = path.join(process.cwd(), "src", "lib", "storeSettings.ts");
+    const storeSettingsContent = fs.readFileSync(storeSettingsPath, "utf-8");
+    assert.ok(storeSettingsContent.includes("storeName"), "Settings must support storeName");
+    assert.ok(storeSettingsContent.includes("address"), "Settings must support address");
+    assert.ok(storeSettingsContent.includes("phone"), "Settings must support phone");
+    assert.ok(storeSettingsContent.includes("serviceChargePercent"), "Settings must support serviceChargePercent");
+    assert.ok(storeSettingsContent.includes("kotHeaderTitle"), "Settings must support kotHeaderTitle");
+  });
 });
 
