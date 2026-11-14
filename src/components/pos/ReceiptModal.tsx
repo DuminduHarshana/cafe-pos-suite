@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Printer, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { X, Printer, CheckCircle2, Loader2 } from "lucide-react";
 import { Order } from "@/types";
 import { playSound } from "@/lib/sound";
 import { printReceipt } from "@/lib/printer";
@@ -65,13 +65,20 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
             id="thermal-receipt"
             className="bg-neutral-100 text-neutral-900 font-mono text-xs p-6 rounded-2xl shadow-inner mx-auto max-w-xs border border-neutral-300 relative"
           >
-            {/* Serrated zigzag cut illusion at top */}
+            {/* Store Branding Header with Logo */}
             <div className="text-center space-y-1 mb-4 border-b border-neutral-300 pb-3">
+              <div className="flex justify-center mb-2">
+                <img
+                  src="/logo.png"
+                  alt="Lilly's Restaurant & Cafe Logo"
+                  className="w-16 h-16 rounded-full object-cover border border-neutral-300 shadow-sm"
+                />
+              </div>
               <h2 className="text-sm font-extrabold tracking-widest uppercase">
                 LILLY&apos;S RESTAURANT &amp; CAFE
               </h2>
-              <p className="text-[10px] text-neutral-600">742 Evergreen Terrace &bull; Suite B</p>
-              <p className="text-[10px] text-neutral-600">Tel: (555) 438-2940</p>
+              <p className="text-[10px] text-neutral-600">No. 33, Galle Road, Balapitiya</p>
+              <p className="text-[10px] text-neutral-600">Tel: 0777926230</p>
               <p className="text-[10px] text-neutral-500 font-bold mt-2">
                 ORDER #{order.orderNumber}
               </p>

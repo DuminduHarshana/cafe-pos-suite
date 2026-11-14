@@ -11,7 +11,6 @@ import {
   Lock,
   LogOut,
   Wifi,
-  Sparkles,
   Printer,
   Shield,
 } from "lucide-react";
@@ -84,9 +83,11 @@ export default function Navbar({
     <header className="h-16 bg-[#121215] border-b border-neutral-800/80 px-4 flex items-center justify-between select-none shrink-0 z-30">
       {/* Brand logo & Cafe name */}
       <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20 text-neutral-950 font-bold">
-          <Sparkles className="w-5 h-5 text-neutral-950" />
-        </div>
+        <img
+          src="/logo.png"
+          alt="Lilly's Restaurant & Cafe"
+          className="w-10 h-10 rounded-full object-cover border border-amber-500/40 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/20"
+        />
         <div>
           <div className="flex items-center space-x-2">
             <span className="font-bold text-base tracking-wide bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent">
