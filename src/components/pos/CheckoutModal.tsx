@@ -9,33 +9,44 @@ import {
   Users,
   CheckCircle2,
   Percent,
-  Sparkles,
+  Receipt,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { Order } from "@/types";
+import { Order, CartItem } from "@/types";
 import { playSound } from "@/lib/sound";
 import { formatCurrency } from "@/lib/currency";
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
+  items: CartItem[];
+  onToggleItemServiceCharge: (cartItemId: string) => void;
   subtotal: number;
   discountRate: number;
   setDiscountRate: (rate: number) => void;
+  serviceChargeRate: number;
+  setServiceChargeRate: (rate: number) => void;
   tipAmount: number;
   setTipAmount: (tip: number) => void;
   taxRate: number;
   customerName: string;
   setCustomerName: (name: string) => void;
-  onConfirmOrder: (paymentMethod: string, paidAmount: number) => Promise<Order | null>;
+  onConfirmOrder: (paymentMethod: string, paidAmount: number, serviceChargeAmount: number) => Promise<Order | null>;
 }
 
 export default function CheckoutModal({
   isOpen,
   onClose,
+  items,
+  onToggleItemServiceCharge,
   subtotal,
   discountRate,
   setDiscountRate,
+  serviceChargeRate,
+  setServiceChargeRate,
   tipAmount,
   setTipAmount,
   taxRate,
@@ -47,13 +58,20 @@ export default function CheckoutModal({
   const [cashTendered, setCashTendered] = useState<number>(0);
   const [splitCount, setSplitCount] = useState<number>(2);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showItemSvcManager, setShowItemSvcManager] = useState(false);
+  const [isCustomSvc, setIsCustomSvc] = useState(false);
 
   if (!isOpen) return null;
+
+  // Service charge calculation per item eligibility
+  const applicableItems = items.filter((i) => i.isServiceChargeApplicable !== false);
+  const applicableSubtotal = applicableItems.reduce((acc, curr) => acc + curr.total, 0);
+  const serviceChargeAmount = Math.round(applicableSubtotal * (serviceChargeRate / 100) * 100) / 100;
 
   const discountVal = subtotal * (discountRate / 100);
   const taxableSubtotal = Math.max(0, subtotal - discountVal);
   const tax = taxableSubtotal * taxRate;
-  const grandTotal = taxableSubtotal + tax + tipAmount;
+  const grandTotal = taxableSubtotal + tax + serviceChargeAmount + tipAmount;
 
   const quickCashOptions = [
     Math.ceil(grandTotal),
@@ -69,7 +87,7 @@ export default function CheckoutModal({
     setIsProcessing(true);
     playSound("tap");
     try {
-      const order = await onConfirmOrder(method, grandTotal);
+      const order = await onConfirmOrder(method, grandTotal, serviceChargeAmount);
       if (order) {
         playSound("success");
         try {
@@ -95,7 +113,7 @@ export default function CheckoutModal({
               <span>Checkout &amp; Payment</span>
             </h3>
             <p className="text-xs text-neutral-400 mt-0.5">
-              Select payment tender and complete order
+              Define service charge, tender type, and complete order
             </p>
           </div>
           <button
@@ -107,17 +125,155 @@ export default function CheckoutModal({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
           {/* Customer Name field */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-neutral-300">Customer Name (Optional)</label>
+            <label className="text-xs font-semibold text-neutral-300">
+              Customer / Table Guest Name (Optional)
+            </label>
             <input
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="e.g. Liam or Table Guest"
+              placeholder="e.g. Liam, Anne, or Table Guest"
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500/50"
             />
+          </div>
+
+          {/* Service Charge Configuration Block */}
+          <div className="bg-neutral-900/80 p-4 rounded-2xl border border-neutral-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center space-x-1.5">
+                <Receipt className="w-4 h-4 text-amber-400" />
+                <span>Service Charge</span>
+              </span>
+              <span className="text-xs font-mono font-bold text-neutral-200">
+                {formatCurrency(serviceChargeAmount)} ({serviceChargeRate}%)
+              </span>
+            </div>
+
+            {/* Presets + Custom Option */}
+            <div className="grid grid-cols-5 gap-1.5">
+              {[0, 5, 10, 12.5].map((rate) => (
+                <button
+                  key={rate}
+                  type="button"
+                  onClick={() => {
+                    playSound("tap");
+                    setIsCustomSvc(false);
+                    setServiceChargeRate(rate);
+                  }}
+                  className={`py-1.5 rounded-xl text-xs font-bold border transition ${
+                    !isCustomSvc && serviceChargeRate === rate
+                      ? "bg-amber-500/20 border-amber-500 text-amber-300"
+                      : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  {rate === 0 ? "0% (None)" : `${rate}%`}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  playSound("tap");
+                  setIsCustomSvc(true);
+                }}
+                className={`py-1.5 rounded-xl text-xs font-bold border transition ${
+                  isCustomSvc
+                    ? "bg-amber-500/20 border-amber-500 text-amber-300"
+                    : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+
+            {isCustomSvc && (
+              <div className="flex items-center space-x-2 pt-1">
+                <span className="text-xs text-neutral-400">Custom Rate:</span>
+                <div className="flex items-center bg-neutral-950 border border-neutral-800 rounded-xl px-2.5 py-1">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={serviceChargeRate}
+                    onChange={(e) => setServiceChargeRate(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-16 bg-transparent text-xs font-bold font-mono text-neutral-100 focus:outline-none"
+                  />
+                  <span className="text-xs text-neutral-500 font-bold">%</span>
+                </div>
+              </div>
+            )}
+
+            {/* Item-level Service Charge Eligibility Drawer */}
+            <div className="pt-2 border-t border-neutral-800/80">
+              <button
+                type="button"
+                onClick={() => setShowItemSvcManager(!showItemSvcManager)}
+                className="w-full flex items-center justify-between text-[11px] text-neutral-400 hover:text-neutral-200 py-1"
+              >
+                <span>
+                  Items included: <strong className="text-neutral-200">{applicableItems.length}</strong> of {items.length} items
+                  {items.length > applicableItems.length && (
+                    <span className="text-amber-400 ml-1.5 font-semibold">
+                      ({items.length - applicableItems.length} exempt)
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center space-x-1 text-amber-400">
+                  <span>Toggle item exemption</span>
+                  {showItemSvcManager ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </span>
+              </button>
+
+              {showItemSvcManager && (
+                <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {items.map((it) => {
+                    const isIncluded = it.isServiceChargeApplicable !== false;
+                    return (
+                      <div
+                        key={it.id}
+                        onClick={() => {
+                          playSound("tap");
+                          onToggleItemServiceCharge(it.id);
+                        }}
+                        className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition text-xs ${
+                          isIncluded
+                            ? "bg-neutral-950 border-neutral-800 hover:border-neutral-700"
+                            : "bg-neutral-900/40 border-neutral-800/40 opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 truncate mr-2">
+                          <div
+                            className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${
+                              isIncluded ? "bg-amber-500 text-neutral-950 font-bold" : "border border-neutral-700 text-transparent"
+                            }`}
+                          >
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                          <span className={`truncate ${isIncluded ? "text-neutral-200" : "text-neutral-500 line-through"}`}>
+                            {it.quantity}x {it.menuItemName}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 shrink-0">
+                          <span className="font-mono text-neutral-300">{formatCurrency(it.total)}</span>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                              isIncluded
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-neutral-800 text-neutral-400"
+                            }`}
+                          >
+                            {isIncluded ? "SVC INCLUDED" : "EXEMPT"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Discounts & Tips Grid */}
@@ -149,13 +305,13 @@ export default function CheckoutModal({
               </div>
             </div>
 
-            {/* Tips */}
+            {/* Tips / Gratuity in LKR */}
             <div className="space-y-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                Tip / Gratuity
+                Staff Gratuity / Tip
               </span>
               <div className="grid grid-cols-4 gap-1.5">
-                {[0, 1.0, 2.0, 3.0].map((t) => (
+                {[0, 100, 250, 500].map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -169,7 +325,7 @@ export default function CheckoutModal({
                         : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200"
                     }`}
                   >
-                    {t === 0 ? "No Tip" : `$${t}`}
+                    {t === 0 ? "None" : `Rs. ${t}`}
                   </button>
                 ))}
               </div>
@@ -267,10 +423,10 @@ export default function CheckoutModal({
                 <CreditCard className="w-7 h-7" />
               </div>
               <p className="text-sm font-semibold text-neutral-200">
-                Ready for Contactless Tap or Chip Reader
+                Ready for Contactless Tap, Visa / Mastercard / Amex
               </p>
               <p className="text-xs text-neutral-400">
-                Compatible with Square, Stripe Terminal, Clover, or Ingenico
+                Commercial Bank, Sampath Bank, Dialog Genie, or Stripe Terminal
               </p>
             </div>
           )}
@@ -280,13 +436,13 @@ export default function CheckoutModal({
               {/* Dynamic QR Code representation */}
               <div className="w-36 h-36 bg-white rounded-2xl mx-auto p-2 flex items-center justify-center shadow-lg">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=PAY-${grandTotal.toFixed(2)}-LILLYS-RESTAURANT-CAFE`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LKR-PAY-${grandTotal.toFixed(2)}-LILLYS-RESTAURANT-BALAPITIYA`}
                   alt="Payment QR"
                   className="w-full h-full object-contain"
                 />
               </div>
               <p className="text-xs font-semibold text-neutral-200">
-                Scan to pay with Apple Pay, Google Pay, or Venmo
+                Scan with LANKAQR, FriMi, Genie, or Apple Pay
               </p>
             </div>
           )}
@@ -336,13 +492,26 @@ export default function CheckoutModal({
                 <span className="font-mono">-{formatCurrency(discountVal)}</span>
               </div>
             )}
+            {serviceChargeAmount > 0 && (
+              <div className="flex justify-between text-neutral-300">
+                <span>
+                  Service Charge ({serviceChargeRate}%)
+                  {items.length > applicableItems.length && (
+                    <span className="text-[10px] text-neutral-500 ml-1">
+                      ({applicableItems.length}/{items.length} items)
+                    </span>
+                  )}
+                </span>
+                <span className="font-mono text-amber-300">{formatCurrency(serviceChargeAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-neutral-400">
               <span>Tax (SSCL/VAT)</span>
               <span className="font-mono">{formatCurrency(tax)}</span>
             </div>
             {tipAmount > 0 && (
               <div className="flex justify-between text-neutral-400">
-                <span>Tip / Service</span>
+                <span>Gratuity / Extra Tip</span>
                 <span className="font-mono">{formatCurrency(tipAmount)}</span>
               </div>
             )}
@@ -367,7 +536,7 @@ export default function CheckoutModal({
             className="flex-1 py-3 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-neutral-950 font-bold text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 active:scale-98 transition disabled:opacity-50"
           >
             <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-            <span>{isProcessing ? "Processing Tender..." : `Charge ${formatCurrency(grandTotal)}`}</span>
+            <span>{isProcessing ? "Processing..." : `Charge ${formatCurrency(grandTotal)}`}</span>
           </button>
         </div>
       </div>

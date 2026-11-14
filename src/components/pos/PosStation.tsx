@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -16,13 +16,14 @@ import {
   Coffee,
   Check,
 } from "lucide-react";
-import { Category, MenuItem, CartItem, Table, Staff, Order } from "@/types";
+import { Category, MenuItem, CartItem, Table, Staff, Order, StoreSettings } from "@/types";
 import ModifierModal from "./ModifierModal";
 import CheckoutModal from "./CheckoutModal";
 import ReceiptModal from "./ReceiptModal";
 import { playSound } from "@/lib/sound";
 import { printReceipt, printKitchenChit, getStoredPrinterSettings } from "@/lib/printer";
 import { formatCurrency } from "@/lib/currency";
+import { DEFAULT_STORE_SETTINGS, getStoreSettings, subscribeStoreSettings } from "@/lib/storeSettings";
 
 interface PosStationProps {
   categories: Category[];
@@ -45,11 +46,25 @@ export default function PosStation({
   const [discountRate, setDiscountRate] = useState<number>(0);
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [customerName, setCustomerName] = useState<string>("");
+  const [store, setStore] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+  const [serviceChargeRate, setServiceChargeRate] = useState<number>(10);
+  const [receiptDefaultView, setReceiptDefaultView] = useState<"customer" | "kitchen">("customer");
 
   // Modals
   const [activeItemForModifiers, setActiveItemForModifiers] = useState<MenuItem | null>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   const [completedOrderForReceipt, setCompletedOrderForReceipt] = useState<Order | null>(null);
+
+  useEffect(() => {
+    const current = getStoreSettings();
+    setStore(current);
+    setServiceChargeRate(current.serviceChargePercent ?? 10);
+    const unsub = subscribeStoreSettings((s) => {
+      setStore(s);
+      setServiceChargeRate(s.serviceChargePercent ?? 10);
+    });
+    return unsub;
+  }, []);
 
   // Flat list of all items across categories
   const allItems = useMemo(() => {
@@ -112,11 +127,26 @@ export default function PosStation({
               quantity: 1,
               selectedModifiers: [],
               total: item.price,
+              isServiceChargeApplicable: true,
             },
           ];
         }
       });
     }
+  };
+
+  const handleToggleItemServiceCharge = (cartItemId: string) => {
+    playSound("tap");
+    setCartItems((prev) =>
+      prev.map((ci) =>
+        ci.id === cartItemId
+          ? {
+              ...ci,
+              isServiceChargeApplicable: ci.isServiceChargeApplicable === false ? true : false,
+            }
+          : ci
+      )
+    );
   };
 
   const handleUpdateQuantity = (cartItemId: string, delta: number) => {
@@ -158,13 +188,28 @@ export default function PosStation({
     return cartItems.reduce((acc, curr) => acc + curr.total, 0);
   }, [cartItems]);
 
+  const applicableSubtotal = useMemo(() => {
+    return cartItems
+      .filter((ci) => ci.isServiceChargeApplicable !== false)
+      .reduce((acc, curr) => acc + curr.total, 0);
+  }, [cartItems]);
+
+  const serviceChargeAmount = useMemo(() => {
+    return Math.round(applicableSubtotal * (serviceChargeRate / 100) * 100) / 100;
+  }, [applicableSubtotal, serviceChargeRate]);
+
+  const taxRate = (store.taxRatePercent ?? 2.5) / 100;
   const discountVal = subtotal * (discountRate / 100);
   const taxableSubtotal = Math.max(0, subtotal - discountVal);
-  const tax = taxableSubtotal * 0.08;
-  const total = taxableSubtotal + tax + tipAmount;
+  const tax = taxableSubtotal * taxRate;
+  const total = taxableSubtotal + tax + serviceChargeAmount + tipAmount;
 
   // Submit Order / Checkout
-  const handleConfirmOrder = async (paymentMethod: string, paidTotal: number): Promise<Order | null> => {
+  const handleConfirmOrder = async (
+    paymentMethod: string,
+    paidTotal: number,
+    appliedServiceCharge: number
+  ): Promise<Order | null> => {
     try {
       const payload = {
         type: orderType,
@@ -174,10 +219,11 @@ export default function PosStation({
         subtotal,
         discount: discountVal,
         tax,
-        tip: tipAmount,
+        tip: appliedServiceCharge + tipAmount,
         total: paidTotal,
         paymentMethod,
         paymentStatus: "PAID",
+        notes: appliedServiceCharge > 0 ? `[SVC: ${serviceChargeRate}% = Rs. ${appliedServiceCharge.toFixed(2)}]` : null,
         items: cartItems.map((ci) => ({
           menuItemId: ci.menuItemId,
           menuItemName: ci.menuItemName,
@@ -198,7 +244,13 @@ export default function PosStation({
       if (!res.ok) throw new Error("Order creation failed");
 
       const createdOrder: Order = await res.json();
-      setCompletedOrderForReceipt(createdOrder);
+      const orderWithService: Order = {
+        ...createdOrder,
+        serviceCharge: appliedServiceCharge,
+        serviceChargeRate: serviceChargeRate,
+      };
+      setCompletedOrderForReceipt(orderWithService);
+      setReceiptDefaultView("customer");
       setIsCheckoutOpen(false);
       handleClearCart();
       onOrderCreated();
@@ -206,10 +258,10 @@ export default function PosStation({
       // Check auto-print receipt setting
       const printerSettings = getStoredPrinterSettings();
       if (printerSettings.autoPrintReceipt) {
-        printReceipt(createdOrder).catch(() => {});
+        printReceipt(orderWithService).catch(() => {});
       }
 
-      return createdOrder;
+      return orderWithService;
     } catch (err) {
       console.error(err);
       alert("Failed to submit order. Check network.");
@@ -230,9 +282,10 @@ export default function PosStation({
         subtotal,
         discount: discountVal,
         tax,
-        tip: tipAmount,
+        tip: serviceChargeAmount + tipAmount,
         total,
         paymentStatus: "UNPAID",
+        notes: serviceChargeAmount > 0 ? `[SVC: ${serviceChargeRate}% = Rs. ${serviceChargeAmount.toFixed(2)}]` : null,
         items: cartItems.map((ci) => ({
           menuItemId: ci.menuItemId,
           menuItemName: ci.menuItemName,
@@ -253,14 +306,21 @@ export default function PosStation({
       if (!res.ok) throw new Error("Send to kitchen failed");
 
       const createdOrder: Order = await res.json();
+      const orderWithService: Order = {
+        ...createdOrder,
+        serviceCharge: serviceChargeAmount,
+        serviceChargeRate: serviceChargeRate,
+      };
       playSound("chime");
+      setCompletedOrderForReceipt(orderWithService);
+      setReceiptDefaultView("kitchen");
       handleClearCart();
       onOrderCreated();
 
       // Check auto-print kitchen chit setting
       const printerSettings = getStoredPrinterSettings();
       if (printerSettings.autoPrintKitchenChit) {
-        printKitchenChit(createdOrder).catch(() => {});
+        printKitchenChit(orderWithService).catch(() => {});
       }
     } catch (err) {
       console.error(err);
@@ -523,23 +583,39 @@ export default function PosStation({
                     </p>
                   )}
 
-                  {/* Stepper & Delete */}
-                  <div className="flex items-center space-x-2 mt-2">
-                    <div className="flex items-center space-x-1.5 bg-neutral-800 rounded-lg p-0.5 border border-neutral-700">
+                  {/* Stepper, SVC Toggle & Delete */}
+                  <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-neutral-800/60">
+                    <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1.5 bg-neutral-800 rounded-lg p-0.5 border border-neutral-700">
+                        <button
+                          onClick={() => handleUpdateQuantity(ci.id, -1)}
+                          className="w-5 h-5 rounded bg-neutral-700 hover:bg-neutral-600 flex items-center justify-center text-neutral-200 text-xs"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-5 text-center font-mono text-xs font-bold text-neutral-100">
+                          {ci.quantity}
+                        </span>
+                        <button
+                          onClick={() => handleUpdateQuantity(ci.id, 1)}
+                          className="w-5 h-5 rounded bg-neutral-700 hover:bg-neutral-600 flex items-center justify-center text-neutral-200 text-xs"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {/* Service Charge Quick Toggle per Item */}
                       <button
-                        onClick={() => handleUpdateQuantity(ci.id, -1)}
-                        className="w-5 h-5 rounded bg-neutral-700 hover:bg-neutral-600 flex items-center justify-center text-neutral-200 text-xs"
+                        type="button"
+                        onClick={() => handleToggleItemServiceCharge(ci.id)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition border ${
+                          ci.isServiceChargeApplicable !== false
+                            ? "bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25"
+                            : "bg-neutral-800 text-neutral-500 border-neutral-700 hover:text-neutral-300 line-through"
+                        }`}
+                        title="Click to toggle Service Charge eligibility for this item"
                       >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="w-5 text-center font-mono text-xs font-bold text-neutral-100">
-                        {ci.quantity}
-                      </span>
-                      <button
-                        onClick={() => handleUpdateQuantity(ci.id, 1)}
-                        className="w-5 h-5 rounded bg-neutral-700 hover:bg-neutral-600 flex items-center justify-center text-neutral-200 text-xs"
-                      >
-                        <Plus className="w-3 h-3" />
+                        {ci.isServiceChargeApplicable !== false ? "SVC: Yes" : "SVC: Exempt"}
                       </button>
                     </div>
 
@@ -570,13 +646,26 @@ export default function PosStation({
                 <span className="font-mono">-{formatCurrency(discountVal)}</span>
               </div>
             )}
+            {serviceChargeAmount > 0 && (
+              <div className="flex justify-between text-neutral-300">
+                <span>
+                  Service Charge ({serviceChargeRate}%)
+                  {cartItems.length > applicableSubtotal && (
+                    <span className="text-[10px] text-neutral-500 ml-1">
+                      (eligible items)
+                    </span>
+                  )}
+                </span>
+                <span className="font-mono text-amber-300">{formatCurrency(serviceChargeAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-neutral-400">
               <span>Tax (SSCL/VAT)</span>
               <span className="font-mono text-neutral-200">{formatCurrency(tax)}</span>
             </div>
             {tipAmount > 0 && (
               <div className="flex justify-between text-neutral-400">
-                <span>Tip / Service</span>
+                <span>Extra Gratuity / Tip</span>
                 <span className="font-mono text-neutral-200">{formatCurrency(tipAmount)}</span>
               </div>
             )}
@@ -636,12 +725,16 @@ export default function PosStation({
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
+        items={cartItems}
+        onToggleItemServiceCharge={handleToggleItemServiceCharge}
         subtotal={subtotal}
         discountRate={discountRate}
         setDiscountRate={setDiscountRate}
+        serviceChargeRate={serviceChargeRate}
+        setServiceChargeRate={setServiceChargeRate}
         tipAmount={tipAmount}
         setTipAmount={setTipAmount}
-        taxRate={0.08}
+        taxRate={taxRate}
         customerName={customerName}
         setCustomerName={setCustomerName}
         onConfirmOrder={handleConfirmOrder}
@@ -649,6 +742,7 @@ export default function PosStation({
 
       <ReceiptModal
         order={completedOrderForReceipt}
+        defaultView={receiptDefaultView}
         onClose={() => setCompletedOrderForReceipt(null)}
       />
     </div>

@@ -70,5 +70,29 @@ describe("UI/UX & Frontend Brand Verification", () => {
     assert.ok(content.includes("No. 33, Galle Road, Balapitiya"), "Settings must contain Galle Road address");
     assert.ok(content.includes("0777926230"), "Settings must contain phone 0777926230");
   });
+
+  it("ReceiptModal implements Kitchen KOT Chit option with Table Name, Time, Items, and Customer Name", () => {
+    const receiptModalPath = path.join(process.cwd(), "src", "components", "pos", "ReceiptModal.tsx");
+    assert.ok(fs.existsSync(receiptModalPath));
+    const content = fs.readFileSync(receiptModalPath, "utf-8");
+
+    assert.ok(content.includes("Kitchen KOT Chit"), "ReceiptModal must provide Kitchen KOT Chit option");
+    assert.ok(content.includes("KITCHEN ORDER TICKET (KOT)"), "KOT must have clear header");
+    assert.ok(content.includes("tableLabel") || content.includes("order.table"), "KOT must include table identification");
+    assert.ok(content.includes("toLocaleTimeString"), "KOT must include time");
+    assert.ok(content.includes("order.customerName"), "KOT must support optional customer name");
+    assert.ok(content.includes("item.quantity") && content.includes("item.menuItemName"), "KOT must list items and quantities");
+  });
+
+  it("CheckoutModal provides configurable Service Charge with presets and item exemption controls", () => {
+    const checkoutModalPath = path.join(process.cwd(), "src", "components", "pos", "CheckoutModal.tsx");
+    assert.ok(fs.existsSync(checkoutModalPath));
+    const content = fs.readFileSync(checkoutModalPath, "utf-8");
+
+    assert.ok(content.includes("Service Charge"), "CheckoutModal must support Service Charge");
+    assert.ok(content.includes("serviceChargeRate"), "CheckoutModal must support configurable serviceChargeRate");
+    assert.ok(content.includes("onToggleItemServiceCharge"), "CheckoutModal must support item exemption toggle");
+    assert.ok(content.includes("isServiceChargeApplicable"), "CheckoutModal must track item service charge eligibility");
+  });
 });
 

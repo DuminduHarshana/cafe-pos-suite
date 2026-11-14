@@ -75,6 +75,7 @@ export default function ModifierModal({
       selectedModifiers: allSelectedModifiers,
       total: calculateTotal(),
       notes: notes.trim() || undefined,
+      isServiceChargeApplicable: true,
     });
 
     onClose();

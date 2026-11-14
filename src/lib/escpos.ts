@@ -285,6 +285,7 @@ export function generateKitchenChitBytes(
     type: string;
     table?: { number: string; name: string } | null;
     createdAt: string;
+    customerName?: string | null;
     notes?: string | null;
     items: {
       quantity: number;
@@ -301,16 +302,24 @@ export function generateKitchenChitBytes(
     .alignCenter()
     .size("double")
     .bold(true)
-    .textLine("--- KITCHEN ORDER ---")
+    .textLine("--- KITCHEN ORDER (KOT) ---")
     .feed(1)
     .textLine(`ORDER #${order.orderNumber}`)
     .size("normal")
     .bold(false)
     .textLine(`Type: ${order.type.replace("_", " ")}`)
-    .textLine(`Time: ${new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`);
+    .textLine(`Time: ${new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`)
+    .textLine(`Date: ${new Date(order.createdAt).toLocaleDateString()}`);
 
   if (order.table) {
-    b.size("double").bold(true).textLine(`TABLE: ${order.table.number}`).size("normal").bold(false);
+    const tableName = order.table.name ? `${order.table.name} (T-${order.table.number})` : `TABLE ${order.table.number}`;
+    b.size("double").bold(true).textLine(`TABLE: ${tableName}`).size("normal").bold(false);
+  } else {
+    b.size("double-height").bold(true).textLine("TABLE: TAKEAWAY / COUNTER").size("normal").bold(false);
+  }
+
+  if (order.customerName && order.customerName.trim() && order.customerName.toLowerCase() !== "guest") {
+    b.bold(true).textLine(`Customer: ${order.customerName}`).bold(false);
   }
 
   b.divider("=").alignLeft();

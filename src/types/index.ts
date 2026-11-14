@@ -69,6 +69,7 @@ export interface CartItem {
   selectedModifiers: string[];
   total: number;
   notes?: string;
+  isServiceChargeApplicable?: boolean;
 }
 
 export interface Table {
@@ -106,6 +107,8 @@ export interface Order {
   discount: number;
   tax: number;
   tip: number;
+  serviceCharge?: number;
+  serviceChargeRate?: number;
   total: number;
   customerName?: string | null;
   customerPhone?: string | null;
