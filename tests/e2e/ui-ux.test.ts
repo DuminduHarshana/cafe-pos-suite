@@ -225,5 +225,55 @@ describe("UI/UX & Frontend Brand Verification", () => {
     assert.ok(storeSettingsContent.includes("serviceChargePercent"), "Settings must support serviceChargePercent");
     assert.ok(storeSettingsContent.includes("kotHeaderTitle"), "Settings must support kotHeaderTitle");
   });
+
+  it("Customer-Facing Display (/display) route serves dual-screen experience with branding", async () => {
+    const res = await fetch(`${BASE_URL}/display`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.includes("Lilly") || html.includes("Display"), "Customer Display must include Lilly branding");
+
+    const cfdPath = path.join(process.cwd(), "src", "app", "display", "page.tsx");
+    assert.ok(fs.existsSync(cfdPath));
+    const content = fs.readFileSync(cfdPath, "utf-8");
+    assert.ok(content.includes("subscribeCfdState"), "Customer Display must subscribe to live POS state");
+    assert.ok(content.includes("LankaQR"), "Customer Display must support LankaQR instant pay");
+    assert.ok(content.includes("Payment Received"), "Customer Display must support payment confirmation screen");
+  });
+
+  it("Table QR Digital Menu (/menu) route serves guest contactless dining experience", async () => {
+    const res = await fetch(`${BASE_URL}/menu`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.includes("Digital Contactless Menu") || html.includes("Lilly"), "Digital menu must render guest experience");
+
+    const menuPath = path.join(process.cwd(), "src", "app", "menu", "page.tsx");
+    assert.ok(fs.existsSync(menuPath));
+    const content = fs.readFileSync(menuPath, "utf-8");
+    assert.ok(content.includes("tableParam") || content.includes("useSearchParams"), "Digital menu must support table query parameters");
+    assert.ok(content.includes("Call Waiter"), "Digital menu must provide Call Waiter action");
+    assert.ok(content.includes("Request Bill"), "Digital menu must provide Request Bill action");
+  });
+
+  it("Table Manager provides Table QR Badges modal and print generator", () => {
+    const tableManagerPath = path.join(process.cwd(), "src", "components", "tables", "TableManager.tsx");
+    assert.ok(fs.existsSync(tableManagerPath));
+    const tmContent = fs.readFileSync(tableManagerPath, "utf-8");
+    assert.ok(tmContent.includes("Table QR Badges"), "TableManager must have Table QR Badges trigger");
+    assert.ok(tmContent.includes("TableQrModal"), "TableManager must render TableQrModal");
+
+    const qrModalPath = path.join(process.cwd(), "src", "components", "tables", "TableQrModal.tsx");
+    assert.ok(fs.existsSync(qrModalPath));
+    const modalContent = fs.readFileSync(qrModalPath, "utf-8");
+    assert.ok(modalContent.includes("QRCode.toDataURL"), "TableQrModal must generate QR codes");
+    assert.ok(modalContent.includes("table-qr-print-area"), "TableQrModal must define printable badge area");
+  });
+
+  it("Navbar provides one-click launch for Customer-Facing Display (/display)", () => {
+    const navbarPath = path.join(process.cwd(), "src", "components", "Navbar.tsx");
+    assert.ok(fs.existsSync(navbarPath));
+    const content = fs.readFileSync(navbarPath, "utf-8");
+    assert.ok(content.includes("/display"), "Navbar must have trigger pointing to /display");
+    assert.ok(content.includes("Customer-Facing Display"), "Navbar must have descriptive title for CFD");
+  });
 });
 

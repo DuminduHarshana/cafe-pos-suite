@@ -16,6 +16,7 @@ import {
   Printer,
   Shield,
   Sliders,
+  Monitor,
 } from "lucide-react";
 import { Staff, StoreSettings } from "@/types";
 import { playSound } from "@/lib/sound";
@@ -224,6 +225,18 @@ export default function Navbar({
             </span>
           </div>
         )}
+
+        {/* Customer-Facing Display Trigger */}
+        <button
+          onClick={() => {
+            playSound("tap");
+            window.open("/display", "lilly_customer_display", "width=1024,height=768");
+          }}
+          className="p-1.5 sm:p-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-amber-500/40 hover:bg-neutral-800 text-neutral-400 hover:text-amber-400 transition"
+          title="Open Customer-Facing Display (/display)"
+        >
+          <Monitor className="w-4 h-4" />
+        </button>
 
         {/* Receipt Printer Settings Trigger */}
         <button

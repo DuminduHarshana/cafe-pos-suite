@@ -10,10 +10,12 @@ import {
   Clock,
   Sparkles,
   X,
+  QrCode as QrIcon,
 } from "lucide-react";
 import { Table } from "@/types";
 import { playSound } from "@/lib/sound";
 import { formatCurrency } from "@/lib/currency";
+import TableQrModal from "./TableQrModal";
 
 interface TableManagerProps {
   tables: Table[];
@@ -28,6 +30,7 @@ export default function TableManager({
 }: TableManagerProps) {
   const [selectedSection, setSelectedSection] = useState<string>("ALL");
   const [isAddTableOpen, setIsAddTableOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [newNumber, setNewNumber] = useState("");
   const [newName, setNewName] = useState("");
   const [newSection, setNewSection] = useState("Indoor Lounge");
@@ -118,6 +121,17 @@ export default function TableManager({
               </button>
             ))}
           </div>
+
+          <button
+            onClick={() => {
+              playSound("tap");
+              setIsQrModalOpen(true);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-amber-500/40 text-neutral-300 hover:text-amber-400 font-semibold text-xs flex items-center space-x-1.5 transition shadow-sm active:scale-95"
+          >
+            <QrIcon className="w-3.5 h-3.5 text-amber-400" />
+            <span>Table QR Badges</span>
+          </button>
 
           <button
             onClick={() => {
@@ -314,6 +328,14 @@ export default function TableManager({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Table QR Badges Modal */}
+      {isQrModalOpen && (
+        <TableQrModal
+          tables={tables}
+          onClose={() => setIsQrModalOpen(false)}
+        />
       )}
     </div>
   );

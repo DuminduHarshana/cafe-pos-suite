@@ -25,6 +25,11 @@ import { printReceipt, printKitchenChit, getStoredPrinterSettings } from "@/lib/
 import { formatCurrency } from "@/lib/currency";
 import { DEFAULT_STORE_SETTINGS, getStoreSettings, subscribeStoreSettings } from "@/lib/storeSettings";
 import { enqueueOfflineOrder } from "@/lib/offlineManager";
+import {
+  broadcastCfdState,
+  resetCfdState,
+  CfdItem,
+} from "@/lib/customerDisplayManager";
 
 interface PosStationProps {
   categories: Category[];
@@ -207,6 +212,57 @@ export default function PosStation({
   const tax = taxableSubtotal * taxRate;
   const total = taxableSubtotal + tax + serviceChargeAmount + tipAmount;
 
+  // Synchronize live cart state with Customer-Facing Display
+  useEffect(() => {
+    if (cartItems.length === 0 && !isCheckoutOpen) {
+      resetCfdState();
+      return;
+    }
+
+    const cfdItems: CfdItem[] = cartItems.map((ci) => ({
+      id: ci.id,
+      name: ci.menuItemName,
+      quantity: ci.quantity,
+      unitPrice: ci.unitPrice,
+      total: ci.total,
+      notes: ci.notes,
+      modifiers: ci.selectedModifiers,
+    }));
+
+    const tableName =
+      orderType === "DINE_IN"
+        ? tables.find((t) => t.id === selectedTableId)?.name ||
+          `Table ${tables.find((t) => t.id === selectedTableId)?.number || ""}`
+        : "Takeaway";
+
+    broadcastCfdState({
+      status: isCheckoutOpen ? "CHECKOUT" : "ORDER_IN_PROGRESS",
+      type: orderType,
+      tableName,
+      items: cfdItems,
+      subtotal,
+      tax,
+      serviceCharge: serviceChargeAmount,
+      serviceChargeRate,
+      discount: discountVal,
+      tip: tipAmount,
+      total: isCheckoutOpen ? total : total,
+    });
+  }, [
+    cartItems,
+    isCheckoutOpen,
+    orderType,
+    selectedTableId,
+    subtotal,
+    tax,
+    serviceChargeAmount,
+    serviceChargeRate,
+    discountVal,
+    tipAmount,
+    total,
+    tables,
+  ]);
+
   // Submit Order / Checkout
   const handleConfirmOrder = async (
     paymentMethod: string,
@@ -310,6 +366,16 @@ export default function PosStation({
       setCompletedOrderForReceipt(orderWithService);
       setReceiptDefaultView("customer");
       setIsCheckoutOpen(false);
+
+      // Notify Customer-Facing Display of payment success
+      broadcastCfdState({
+        status: "PAID",
+        orderNumber: orderWithService.orderNumber,
+        total: orderWithService.total,
+        amountPaid: paidTotal,
+        changeDue: Math.max(0, paidTotal - orderWithService.total),
+      });
+
       handleClearCart();
       onOrderCreated();
 
