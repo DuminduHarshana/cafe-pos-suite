@@ -13,6 +13,19 @@ import PinModal from "@/components/staff/PinModal";
 import PrinterSettingsModal from "@/components/settings/PrinterSettingsModal";
 import { Category, ModifierGroup, Order, Table, InventoryItem, Staff } from "@/types";
 import { getStoreSettings, applyColorTheme } from "@/lib/storeSettings";
+import {
+  setCachedMenu,
+  getCachedMenu,
+  setCachedTables,
+  getCachedTables,
+  setCachedStaff,
+  getCachedStaff,
+  getOfflineOrders,
+  syncOfflineOrders,
+  subscribeNetworkState,
+  NetworkState,
+} from "@/lib/offlineManager";
+import { playSound } from "@/lib/sound";
 
 const DEFAULT_STAFF: Staff = {
   id: "admin-milindu",
@@ -55,8 +68,13 @@ export default function Home() {
   const [isLockedStation, setIsLockedStation] = useState(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [networkState, setNetworkState] = useState<NetworkState>({
+    online: true,
+    pendingCount: 0,
+    isSyncing: false,
+  });
 
-  // Load Menu Data
+  // Load Menu Data with Offline Caching
   const loadMenu = useCallback(async () => {
     try {
       const res = await fetch("/api/menu", {
@@ -67,13 +85,20 @@ export default function Home() {
         const data = await res.json();
         setCategories(data.categories || []);
         setModifierGroups(data.modifierGroups || []);
+        setCachedMenu(data);
+        return;
       }
     } catch (e) {
-      console.error(e);
+      console.warn("Could not fetch /api/menu from network, loading offline cache:", e);
+    }
+    const cached = getCachedMenu();
+    if (cached) {
+      setCategories(cached.categories || []);
+      setModifierGroups(cached.modifierGroups || []);
     }
   }, []);
 
-  // Load Tables
+  // Load Tables with Offline Caching
   const loadTables = useCallback(async () => {
     try {
       const res = await fetch("/api/tables", {
@@ -83,26 +108,38 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         setTables(data || []);
+        setCachedTables(data || []);
+        return;
       }
     } catch (e) {
-      console.error(e);
+      console.warn("Could not fetch /api/tables from network, loading offline cache:", e);
+    }
+    const cached = getCachedTables();
+    if (cached) {
+      setTables(cached);
     }
   }, []);
 
-  // Load Orders
+  // Load Orders (Server Orders + Merged Offline Queue)
   const loadOrders = useCallback(async () => {
+    let serverOrders: Order[] = [];
     try {
       const res = await fetch("/api/orders", {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       });
       if (res.ok) {
-        const data = await res.json();
-        setOrders(data || []);
+        serverOrders = (await res.json()) || [];
       }
     } catch (e) {
-      console.error(e);
+      console.warn("Could not fetch /api/orders from network, loading offline orders:", e);
     }
+    const offlineList = getOfflineOrders();
+    const merged = [
+      ...offlineList.filter((o) => !serverOrders.some((so) => so.id === o.id)),
+      ...serverOrders,
+    ];
+    setOrders(merged);
   }, []);
 
   // Load Inventory
@@ -137,46 +174,56 @@ export default function Home() {
     }
   }, []);
 
-  // Load Staff & Restore Session
+  // Load Staff & Restore Session with Offline Fallback
   const loadStaff = useCallback(async () => {
+    let data: Staff[] = [];
     try {
       const res = await fetch("/api/staff", {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       });
       if (res.ok) {
-        const data = await res.json();
-        setStaffList(data || []);
-
-        // Restore persisted session from localStorage unless explicitly locked
-        const isLocked = typeof window !== "undefined" && localStorage.getItem("lilly_pos_station_locked") === "true";
-        const savedSession = typeof window !== "undefined" ? localStorage.getItem("lilly_pos_session_staff") : null;
-
-        if (savedSession && !isLocked) {
-          try {
-            const parsed: Staff = JSON.parse(savedSession);
-            const matched = data?.find((s: Staff) => s.id === parsed.id || s.name === parsed.name);
-            if (matched) {
-              setCurrentStaff(matched);
-            } else {
-              setCurrentStaff(parsed);
-            }
-          } catch {
-            if (data && data.length > 0) {
-              setCurrentStaff(data[0]);
-            }
-          }
-        } else {
-          // Locked state: Station requires PIN authentication
-          setIsLockedStation(true);
-          setIsPinModalOpen(true);
-          if (data && data.length > 0) {
-            setCurrentStaff(data[0]);
-          }
-        }
+        data = (await res.json()) || [];
+        setCachedStaff(data);
       }
     } catch (e) {
-      console.error(e);
+      console.warn("Could not fetch /api/staff from network, loading offline cache:", e);
+    }
+
+    if (!data || data.length === 0) {
+      data = getCachedStaff() || [
+        DEFAULT_STAFF,
+        { id: "barista-2", name: "Barista", role: "BARISTA" },
+        { id: "cashier-3", name: "Cashier", role: "CASHIER" },
+      ];
+    }
+    setStaffList(data);
+
+    // Restore persisted session from localStorage unless explicitly locked
+    const isLocked = typeof window !== "undefined" && localStorage.getItem("lilly_pos_station_locked") === "true";
+    const savedSession = typeof window !== "undefined" ? localStorage.getItem("lilly_pos_session_staff") : null;
+
+    if (savedSession && !isLocked) {
+      try {
+        const parsed: Staff = JSON.parse(savedSession);
+        const matched = data?.find((s: Staff) => s.id === parsed.id || s.name === parsed.name);
+        if (matched) {
+          setCurrentStaff(matched);
+        } else {
+          setCurrentStaff(parsed);
+        }
+      } catch {
+        if (data && data.length > 0) {
+          setCurrentStaff(data[0]);
+        }
+      }
+    } else {
+      // Locked state: Station requires PIN authentication
+      setIsLockedStation(true);
+      setIsPinModalOpen(true);
+      if (data && data.length > 0) {
+        setCurrentStaff(data[0]);
+      }
     }
   }, []);
 
@@ -233,6 +280,23 @@ export default function Home() {
       loadAnalytics();
     }
   }, [activeTab, loadAnalytics]);
+
+  // Network & Auto-Sync Subscription
+  useEffect(() => {
+    const unsub = subscribeNetworkState((state) => {
+      setNetworkState(state);
+      // Auto-sync when coming back online if orders are pending
+      if (state.online && state.pendingCount > 0 && !state.isSyncing) {
+        syncOfflineOrders().then((res) => {
+          if (res.synced > 0) {
+            playSound("chime");
+            refreshAll();
+          }
+        });
+      }
+    });
+    return unsub;
+  }, [refreshAll]);
 
   const activeOrdersCount = orders.filter((o) =>
     ["PENDING", "PREPARING", "READY"].includes(o.status)
@@ -297,6 +361,24 @@ export default function Home() {
         onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
         activeOrdersCount={activeOrdersCount}
       />
+
+      {/* Offline Mode Active Banner */}
+      {!networkState.online && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs text-amber-300 shrink-0 select-none">
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <span className="font-bold">Offline Mode Active:</span>
+            <span className="text-amber-200/80 hidden md:inline">
+              Running without internet. Menu, orders, and receipts are processing locally and will auto-sync when network returns.
+            </span>
+          </div>
+          {networkState.pendingCount > 0 && (
+            <span className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold shrink-0">
+              {networkState.pendingCount} {networkState.pendingCount === 1 ? "order" : "orders"} queued
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Dynamic View Panels */}
       <div className="flex-1 overflow-hidden relative">

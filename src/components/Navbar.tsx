@@ -11,6 +11,8 @@ import {
   Lock,
   LogOut,
   Wifi,
+  WifiOff,
+  RefreshCw,
   Printer,
   Shield,
   Sliders,
@@ -18,6 +20,11 @@ import {
 import { Staff, StoreSettings } from "@/types";
 import { playSound } from "@/lib/sound";
 import { DEFAULT_STORE_SETTINGS, getStoreSettings, subscribeStoreSettings } from "@/lib/storeSettings";
+import {
+  subscribeNetworkState,
+  syncOfflineOrders,
+  NetworkState,
+} from "@/lib/offlineManager";
 
 interface NavbarProps {
   activeTab: "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics" | "settings";
@@ -40,12 +47,31 @@ export default function Navbar({
 }: NavbarProps) {
   const [time, setTime] = useState<string>("");
   const [store, setStore] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+  const [network, setNetwork] = useState<NetworkState>({
+    online: true,
+    pendingCount: 0,
+    isSyncing: false,
+  });
 
   useEffect(() => {
     setStore(getStoreSettings());
     const unsub = subscribeStoreSettings((s) => setStore(s));
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const unsub = subscribeNetworkState((n) => setNetwork(n));
+    return unsub;
+  }, []);
+
+  const handleManualSync = async () => {
+    if (network.isSyncing) return;
+    playSound("tap");
+    const res = await syncOfflineOrders();
+    if (res.synced > 0) {
+      playSound("chime");
+    }
+  };
 
   useEffect(() => {
     const updateTime = () => {
@@ -164,11 +190,40 @@ export default function Navbar({
           <span className="text-[10px] text-neutral-500">Live Sync</span>
         </div>
 
-        {/* Network status */}
-        <div className="hidden md:flex items-center space-x-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
-          <Wifi className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-medium">Online</span>
-        </div>
+        {/* Network & Offline Status Pill */}
+        {network.online ? (
+          network.pendingCount > 0 ? (
+            <button
+              onClick={handleManualSync}
+              disabled={network.isSyncing}
+              className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 text-xs font-bold transition hover:bg-amber-500/30 active:scale-95 animate-pulse"
+              title="Click to sync offline orders to cloud"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${network.isSyncing ? "animate-spin" : ""}`} />
+              <span className="text-[11px]">
+                {network.isSyncing ? "Syncing..." : `Sync (${network.pendingCount})`}
+              </span>
+            </button>
+          ) : (
+            <div
+              className="hidden md:flex items-center space-x-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs"
+              title="Connected to cloud server"
+            >
+              <Wifi className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-medium">Online</span>
+            </div>
+          )
+        ) : (
+          <div
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold animate-pulse"
+            title="Operating in Local Offline Mode. Orders queued locally."
+          >
+            <WifiOff className="w-3.5 h-3.5 text-rose-400" />
+            <span className="text-[11px]">
+              Offline {network.pendingCount > 0 ? `(${network.pendingCount})` : ""}
+            </span>
+          </div>
+        )}
 
         {/* Receipt Printer Settings Trigger */}
         <button

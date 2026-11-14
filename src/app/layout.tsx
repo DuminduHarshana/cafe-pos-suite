@@ -40,6 +40,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark h-full bg-[#09090b] text-neutral-100 selection:bg-amber-500/30">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function() {});
+                });
+              }
+            `,
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} h-full antialiased font-sans select-none overflow-hidden`}>
         {children}
       </body>

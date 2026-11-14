@@ -170,5 +170,29 @@ describe("UI/UX & Frontend Brand Verification", () => {
     assert.ok(content.includes("showCustomerOnKot"), "SettingsHub must allow toggling showCustomerOnKot");
     assert.ok(content.includes("Kitchen KOT"), "SettingsHub must provide Kitchen KOT live preview");
   });
+
+  it("Offline Mode: Service Worker sw.js is published and registered for offline resilience", () => {
+    const swPath = path.join(process.cwd(), "public", "sw.js");
+    assert.ok(fs.existsSync(swPath), "public/sw.js must exist");
+    const content = fs.readFileSync(swPath, "utf-8");
+    assert.ok(content.includes("lilly-pos-v1"), "sw.js must define cache version");
+    assert.ok(content.includes("caches.match"), "sw.js must implement offline cache retrieval");
+
+    const layoutPath = path.join(process.cwd(), "src", "app", "layout.tsx");
+    const layoutContent = fs.readFileSync(layoutPath, "utf-8");
+    assert.ok(layoutContent.includes("serviceWorker.register"), "RootLayout must register sw.js");
+  });
+
+  it("Offline Mode: PosStation and Navbar provide local order queuing and network status tracking", () => {
+    const posPath = path.join(process.cwd(), "src", "components", "pos", "PosStation.tsx");
+    const posContent = fs.readFileSync(posPath, "utf-8");
+    assert.ok(posContent.includes("enqueueOfflineOrder"), "PosStation must queue orders locally when offline");
+    assert.ok(posContent.includes("OFF-"), "PosStation must generate offline order numbers");
+
+    const navbarPath = path.join(process.cwd(), "src", "components", "Navbar.tsx");
+    const navbarContent = fs.readFileSync(navbarPath, "utf-8");
+    assert.ok(navbarContent.includes("Offline"), "Navbar must have offline state display");
+    assert.ok(navbarContent.includes("handleManualSync") || navbarContent.includes("syncOfflineOrders"), "Navbar must support offline sync");
+  });
 });
 

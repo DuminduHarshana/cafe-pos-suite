@@ -24,6 +24,7 @@ import { playSound } from "@/lib/sound";
 import { printReceipt, printKitchenChit, getStoredPrinterSettings } from "@/lib/printer";
 import { formatCurrency } from "@/lib/currency";
 import { DEFAULT_STORE_SETTINGS, getStoreSettings, subscribeStoreSettings } from "@/lib/storeSettings";
+import { enqueueOfflineOrder } from "@/lib/offlineManager";
 
 interface PosStationProps {
   categories: Category[];
@@ -237,15 +238,54 @@ export default function PosStation({
         })),
       };
 
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      let createdOrder: Order;
 
-      if (!res.ok) throw new Error("Order creation failed");
+      try {
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      const createdOrder: Order = await res.json();
+        if (!res.ok) throw new Error("Server order creation failed");
+        createdOrder = await res.json();
+      } catch (networkErr) {
+        console.warn("Network offline, processing order locally in Offline Queue:", networkErr);
+        const offlineOrderNumber = "OFF-" + Math.floor(1000 + Math.random() * 9000);
+        createdOrder = {
+          id: `offline-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          orderNumber: offlineOrderNumber,
+          type: orderType,
+          tableId: orderType === "DINE_IN" && selectedTableId ? selectedTableId : null,
+          customerName: payload.customerName,
+          customerPhone: null,
+          staff: currentStaff,
+          subtotal,
+          discount: discountVal,
+          tax,
+          tip: appliedServiceCharge + tipAmount,
+          total: paidTotal,
+          paymentMethod,
+          paymentStatus: "PAID",
+          status: "PENDING",
+          notes: (payload.notes ? payload.notes + " " : "") + "[OFFLINE PROCESSED]",
+          createdAt: new Date().toISOString(),
+          items: payload.items.map((i, idx) => ({
+            id: `offline-item-${Date.now()}-${idx}`,
+            menuItemId: i.menuItemId || "",
+            menuItemName: i.menuItemName,
+            unitPrice: i.unitPrice,
+            quantity: i.quantity,
+            total: i.total,
+            notes: i.notes || null,
+            status: "QUEUED",
+            selectedModifiers: i.selectedModifiers ? JSON.stringify(i.selectedModifiers) : null,
+          })),
+        };
+        // Safely queue into local offline storage
+        enqueueOfflineOrder(createdOrder);
+      }
+
       const safeItems = (createdOrder.items && createdOrder.items.length > 0)
         ? createdOrder.items
         : payload.items.map((i, idx) => ({
@@ -281,8 +321,8 @@ export default function PosStation({
 
       return orderWithService;
     } catch (err) {
-      console.error(err);
-      alert("Failed to submit order. Check network.");
+      console.error("Critical order error:", err);
+      alert("Unable to process order. Please try again.");
       return null;
     }
   };
@@ -315,15 +355,54 @@ export default function PosStation({
         })),
       };
 
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      let createdOrder: Order;
 
-      if (!res.ok) throw new Error("Send to kitchen failed");
+      try {
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      const createdOrder: Order = await res.json();
+        if (!res.ok) throw new Error("Send to kitchen failed on server");
+        createdOrder = await res.json();
+      } catch (networkErr) {
+        console.warn("Network offline, queuing kitchen order locally in Offline Queue:", networkErr);
+        const offlineOrderNumber = "OFF-" + Math.floor(1000 + Math.random() * 9000);
+        createdOrder = {
+          id: `offline-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          orderNumber: offlineOrderNumber,
+          type: orderType,
+          tableId: orderType === "DINE_IN" && selectedTableId ? selectedTableId : null,
+          customerName: payload.customerName,
+          customerPhone: null,
+          staff: currentStaff,
+          subtotal,
+          discount: discountVal,
+          tax,
+          tip: serviceChargeAmount + tipAmount,
+          total,
+          paymentMethod: null,
+          paymentStatus: "UNPAID",
+          status: "PENDING",
+          notes: (payload.notes ? payload.notes + " " : "") + "[OFFLINE KITCHEN HOLD]",
+          createdAt: new Date().toISOString(),
+          items: payload.items.map((i, idx) => ({
+            id: `offline-item-${Date.now()}-${idx}`,
+            menuItemId: i.menuItemId || "",
+            menuItemName: i.menuItemName,
+            unitPrice: i.unitPrice,
+            quantity: i.quantity,
+            total: i.total,
+            notes: i.notes || null,
+            status: "QUEUED",
+            selectedModifiers: i.selectedModifiers ? JSON.stringify(i.selectedModifiers) : null,
+          })),
+        };
+        // Safely queue into local offline storage
+        enqueueOfflineOrder(createdOrder);
+      }
+
       const safeItems = (createdOrder.items && createdOrder.items.length > 0)
         ? createdOrder.items
         : payload.items.map((i, idx) => ({
@@ -357,8 +436,8 @@ export default function PosStation({
         printKitchenChit(orderWithService).catch(() => {});
       }
     } catch (err) {
-      console.error(err);
-      alert("Failed to send order to kitchen.");
+      console.error("Critical kitchen order error:", err);
+      alert("Failed to submit kitchen order. Please try again.");
     }
   };
 
