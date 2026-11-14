@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import net from "net";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/print - Send ESC/POS payload to Network/LAN Thermal Printer
 export async function POST(req: Request) {
   try {

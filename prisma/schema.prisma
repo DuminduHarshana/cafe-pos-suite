@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -175,3 +175,4 @@ model OrderItem {
   selectedModifiers String?   // JSON serialized modifiers array
   createdAt         DateTime  @default(now())
 }
+
