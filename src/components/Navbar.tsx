@@ -213,17 +213,18 @@ export default function Navbar({
           <Lock className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-300 ml-0.5" />
         </button>
 
-        {/* Quick Lock / Sign Out Button */}
+        {/* Explicit Sign Out / Lock Station Button */}
         {onLockStation && (
           <button
             onClick={() => {
               playSound("tap");
               onLockStation();
             }}
-            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 transition"
-            title="Lock POS Terminal"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 font-semibold text-xs transition active:scale-95 shadow-sm"
+            title="Sign Out & Lock Terminal"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden sm:inline font-bold">Log Out</span>
           </button>
         )}
       </div>

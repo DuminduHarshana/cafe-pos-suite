@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   BarChart3,
   DollarSign,
@@ -8,13 +8,14 @@ import {
   CreditCard,
   Banknote,
   QrCode,
-  Coffee,
   Calendar,
-  Sparkles,
   ArrowUpRight,
   ShoppingBag,
+  Trash2,
+  AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
-import { Order } from "@/types";
+import { Order, Staff } from "@/types";
 import { playSound } from "@/lib/sound";
 import { formatCurrency } from "@/lib/currency";
 
@@ -31,16 +32,63 @@ interface AnalyticsDashboardProps {
     paymentMethods: Record<string, number>;
     recentOrders: Order[];
   };
+  currentStaff: Staff;
   onRefresh: () => void;
 }
 
 export default function AnalyticsDashboard({
   analytics,
+  currentStaff,
   onRefresh,
 }: AnalyticsDashboardProps) {
   const { metrics, topItems, paymentMethods, recentOrders } = analytics;
+  const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const totalPayments = Object.values(paymentMethods).reduce((a, b) => a + b, 0) || 1;
+
+  const handleInitiateDelete = (order: Order) => {
+    playSound("tap");
+    if (currentStaff.role !== "ADMIN") {
+      playSound("alert");
+      alert("Permission Denied: Only Admin (Milindu) can delete placed orders. Please switch to Admin using your security PIN.");
+      return;
+    }
+    setDeletingOrder(order);
+  };
+
+  const handleConfirmDeleteOrder = async () => {
+    if (!deletingOrder) return;
+    const orderId = deletingOrder.id;
+    setIsDeleting(true);
+    playSound("delete");
+
+    try {
+      const res = await fetch(`/api/orders?id=${orderId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-staff-role": currentStaff.role,
+        },
+        body: JSON.stringify({ id: orderId, role: currentStaff.role }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete order");
+      }
+
+      playSound("success");
+      setDeletingOrder(null);
+      onRefresh();
+    } catch (err: unknown) {
+      console.error(err);
+      playSound("alert");
+      alert(err instanceof Error ? err.message : "Failed to delete order");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] bg-[#0c0c0f] overflow-hidden">
@@ -55,9 +103,11 @@ export default function AnalyticsDashboard({
           </h2>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs text-neutral-400">
-          <Calendar className="w-4 h-4" />
-          <span>Today &bull; Live Telemetry</span>
+        <div className="flex items-center space-x-3 text-xs text-neutral-400">
+          <span className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800 font-mono text-[11px]">
+            <Calendar className="w-3.5 h-3.5 text-amber-400" />
+            <span>Today &bull; Live Telemetry</span>
+          </span>
         </div>
       </div>
 
@@ -73,7 +123,7 @@ export default function AnalyticsDashboard({
               </p>
               <span className="text-[11px] text-emerald-400 flex items-center space-x-1 mt-1 font-semibold">
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>+18.4% vs last week</span>
+                <span>Live Sales Total</span>
               </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
@@ -88,7 +138,7 @@ export default function AnalyticsDashboard({
                 {metrics.totalOrders}
               </p>
               <span className="text-[11px] text-neutral-400 mt-1 block">
-                {metrics.activeOrdersCount} currently in preparation
+                {metrics.activeOrdersCount} currently active
               </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
@@ -98,105 +148,94 @@ export default function AnalyticsDashboard({
 
           <div className="bg-[#141418] border border-neutral-800/80 p-5 rounded-3xl flex items-center justify-between shadow-sm">
             <div>
-              <span className="text-xs font-semibold text-neutral-400">Average Spend / Ticket</span>
+              <span className="text-xs font-semibold text-neutral-400">Average Ticket Size</span>
               <p className="text-2xl font-extrabold text-neutral-100 font-mono mt-1">
                 {formatCurrency(metrics.avgTicket)}
               </p>
-              <span className="text-[11px] text-neutral-400 mt-1 block">
-                Per dine-in &amp; takeaway guest
-              </span>
+              <span className="text-[11px] text-neutral-400 mt-1 block">Avg spend per guest</span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
               <TrendingUp className="w-6 h-6" />
             </div>
           </div>
 
           <div className="bg-[#141418] border border-neutral-800/80 p-5 rounded-3xl flex items-center justify-between shadow-sm">
             <div>
-              <span className="text-xs font-semibold text-neutral-400">Staff Tips &amp; Gratuity</span>
-              <p className="text-2xl font-extrabold text-neutral-100 font-mono mt-1">
+              <span className="text-xs font-semibold text-neutral-400">Service &amp; Staff Tips</span>
+              <p className="text-2xl font-extrabold text-amber-400 font-mono mt-1">
                 {formatCurrency(metrics.totalTips)}
               </p>
-              <span className="text-[11px] text-amber-400 mt-1 block font-semibold">
-                Direct to barista &amp; wait pool
-              </span>
+              <span className="text-[11px] text-neutral-400 mt-1 block">Accumulated gratuity pool</span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
-              <Sparkles className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+              <span className="font-mono font-bold text-lg">Rs.</span>
             </div>
           </div>
         </div>
 
-        {/* Charts & Distributions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Products Leaderboard */}
-          <div className="bg-[#141418] border border-neutral-800/80 p-6 rounded-3xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm text-neutral-200">Top Performing Offerings</h3>
-              <span className="text-xs text-neutral-500">By Sales Volume</span>
-            </div>
-
+        {/* Breakdown Row: Tender Mix & Top Items */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Payment Tender Distribution */}
+          <div className="bg-[#141418] border border-neutral-800/80 p-6 rounded-3xl space-y-4 shadow-sm">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-400">
+              Payment Method Breakdown
+            </h3>
             <div className="space-y-3">
-              {topItems.length === 0 ? (
-                <p className="text-xs text-neutral-500 py-6 text-center">No orders recorded yet</p>
-              ) : (
-                topItems.map((item, idx) => {
-                  const maxRevenue = topItems[0]?.revenue || 1;
-                  const percent = (item.revenue / maxRevenue) * 100;
-
-                  return (
-                    <div key={idx} className="space-y-1.5">
-                      <div className="flex justify-between items-baseline text-xs">
-                        <span className="font-semibold text-neutral-200 flex items-center space-x-2">
-                          <span className="font-mono text-neutral-500 text-[11px]">#{idx + 1}</span>
-                          <span>{item.name}</span>
-                        </span>
-                        <span className="font-mono font-bold text-neutral-100">
-                          {item.count} sold &bull; {formatCurrency(item.revenue)}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
+              {[
+                { id: "CARD", label: "Credit / Debit Card", icon: CreditCard, color: "bg-blue-500" },
+                { id: "CASH", label: "Cash Tender", icon: Banknote, color: "bg-emerald-500" },
+                { id: "QR_APPLE_PAY", label: "QR / Apple Pay", icon: QrCode, color: "bg-amber-500" },
+              ].map((m) => {
+                const count = paymentMethods[m.id] || 0;
+                const percent = Math.round((count / totalPayments) * 100);
+                const Icon = m.icon;
+                return (
+                  <div key={m.id} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-neutral-300 flex items-center space-x-2">
+                        <Icon className="w-4 h-4 text-neutral-400" />
+                        <span>{m.label}</span>
+                      </span>
+                      <span className="font-mono text-neutral-200">
+                        {count} ({percent}%)
+                      </span>
                     </div>
-                  );
-                })
-              )}
+                    <div className="w-full h-2 rounded-full bg-neutral-800 overflow-hidden">
+                      <div className={`h-full ${m.color} rounded-full`} style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Payment Method Breakdown */}
-          <div className="bg-[#141418] border border-neutral-800/80 p-6 rounded-3xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm text-neutral-200">Payment Tender Distribution</h3>
-              <span className="text-xs text-neutral-500">Tender Share</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Credit Card", key: "CARD", icon: CreditCard, color: "text-sky-400" },
-                { label: "Cash Tender", key: "CASH", icon: Banknote, color: "text-emerald-400" },
-                { label: "Apple / QR", key: "QR_APPLE_PAY", icon: QrCode, color: "text-amber-400" },
-              ].map((m) => {
-                const Icon = m.icon;
-                const amount = paymentMethods[m.key] || 0;
-                const share = ((amount / totalPayments) * 100).toFixed(0);
-
+          {/* Top Revenue Generators */}
+          <div className="lg:col-span-2 bg-[#141418] border border-neutral-800/80 p-6 rounded-3xl space-y-4 shadow-sm">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-400">
+              Top Selling Menu Items Today
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {topItems.slice(0, 6).map((item, idx) => {
+                const share = metrics.totalRevenue > 0 ? Math.round((item.revenue / metrics.totalRevenue) * 100) : 0;
                 return (
                   <div
-                    key={m.key}
-                    className="bg-neutral-900/80 border border-neutral-800 p-4 rounded-2xl flex flex-col justify-between space-y-3"
+                    key={idx}
+                    className="p-3.5 rounded-2xl bg-neutral-900/60 border border-neutral-800/80 flex items-center justify-between"
                   >
-                    <Icon className={`w-5 h-5 ${m.color}`} />
-                    <div>
-                      <span className="text-[10px] text-neutral-400 uppercase font-bold block">
-                        {m.label}
-                      </span>
-                      <span className="font-mono font-bold text-sm text-neutral-100 block mt-0.5">
-                        {formatCurrency(amount)}
+                    <div className="flex items-center space-x-3 truncate">
+                      <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-mono font-bold text-xs">
+                        #{idx + 1}
+                      </div>
+                      <div className="truncate">
+                        <p className="font-bold text-xs text-neutral-200 truncate">{item.name}</p>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          {item.count} orders fulfilled
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono text-xs font-bold text-amber-400">
+                        {formatCurrency(item.revenue)}
                       </span>
                       <span className="text-[10px] text-neutral-500 mt-0.5 block">
                         {share}% of revenue
@@ -209,11 +248,16 @@ export default function AnalyticsDashboard({
           </div>
         </div>
 
-        {/* Recent Orders Log */}
+        {/* Recent Orders Log with Admin Order Deletion */}
         <div className="bg-[#141418] border border-neutral-800/80 rounded-3xl overflow-hidden shadow-sm">
           <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
-            <h3 className="font-bold text-xs text-neutral-200">Recent Order Activity</h3>
-            <span className="text-xs text-neutral-500">Last 8 transactions</span>
+            <div>
+              <h3 className="font-bold text-xs text-neutral-200">Recent Order Activity</h3>
+              <p className="text-[10px] text-neutral-500 mt-0.5">
+                Real-time transactions list &bull; Only Admins can delete placed orders
+              </p>
+            </div>
+            <span className="text-xs text-neutral-500">{recentOrders.length} transactions</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -226,57 +270,111 @@ export default function AnalyticsDashboard({
                   <th className="py-3 px-4">Items Count</th>
                   <th className="py-3 px-4">Tender</th>
                   <th className="py-3 px-4">Total</th>
-                  <th className="py-3 px-5 text-right">Status</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-5 text-right">Admin Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/60">
-                {recentOrders.map((o) => (
-                  <tr key={o.id} className="hover:bg-neutral-800/30 transition">
-                    <td className="py-3 px-5 font-mono font-bold text-neutral-200">
-                      #{o.orderNumber}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
-                        {o.type.replace("_", " ")}
-                      </span>
-                      {o.table && (
-                        <span className="text-[11px] text-neutral-400 ml-1.5 font-medium">
-                          ({o.table.number})
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-neutral-300">
-                      {o.customerName || "Walk-In"}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-neutral-400">
-                      {o.items.length} item(s)
-                    </td>
-                    <td className="py-3 px-4 text-[11px] text-neutral-400 uppercase font-mono">
-                      {o.paymentMethod ? o.paymentMethod.replace("_", " ") : "CARD"}
-                    </td>
-                    <td className="py-3 px-4 font-mono font-bold text-amber-400">
-                      {formatCurrency(o.total)}
-                    </td>
-                    <td className="py-3 px-5 text-right">
-                      <span
-                        className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          o.status === "COMPLETED"
-                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                            : o.status === "READY"
-                            ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
-                            : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                        }`}
-                      >
-                        {o.status}
-                      </span>
+                {recentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-xs text-neutral-500">
+                      No order transactions found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentOrders.map((o) => (
+                    <tr key={o.id} className="hover:bg-neutral-800/30 transition">
+                      <td className="py-3 px-5 font-mono font-bold text-neutral-200">
+                        #{o.orderNumber}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
+                          {o.type.replace("_", " ")}
+                        </span>
+                        {o.table && (
+                          <span className="text-[11px] text-neutral-400 ml-1.5 font-medium">
+                            ({o.table.number})
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-neutral-300">
+                        {o.customerName || "Walk-In"}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-neutral-400">
+                        {o.items?.length || 0} item(s)
+                      </td>
+                      <td className="py-3 px-4 text-[11px] text-neutral-400 uppercase font-mono">
+                        {o.paymentMethod ? o.paymentMethod.replace("_", " ") : "CARD"}
+                      </td>
+                      <td className="py-3 px-4 font-mono font-bold text-amber-400">
+                        {formatCurrency(o.total)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                            o.status === "COMPLETED"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              : o.status === "READY"
+                              ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                              : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          }`}
+                        >
+                          {o.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-5 text-right">
+                        <button
+                          onClick={() => handleInitiateDelete(o)}
+                          className="p-1.5 rounded-lg text-neutral-500 hover:text-rose-400 hover:bg-neutral-800 transition"
+                          title={currentStaff.role === "ADMIN" ? `Delete Order #${o.orderNumber}` : "Admin access required"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+
+      {/* Admin Delete Order Confirmation Modal */}
+      {deletingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="font-bold text-base text-neutral-100">
+                Delete Order #{deletingOrder.orderNumber}?
+              </h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Permanently delete this order ({formatCurrency(deletingOrder.total)}) from sales records. This will recalculate revenue metrics and free up any linked table.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2 pt-2">
+              <button
+                onClick={() => setDeletingOrder(null)}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteOrder}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-600/20 disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

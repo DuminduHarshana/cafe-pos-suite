@@ -25,6 +25,17 @@ describe("API Integration Suite", () => {
       }
     });
 
+    it("GET /api/staff returns strictly the 3 canonical staff roles without duplicates", async () => {
+      const res = await fetch(`${BASE_URL}/api/staff`);
+      assert.equal(res.status, 200);
+      const staffList = await res.json();
+      assert.equal(staffList.length, 3, "Expected exactly 3 staff roles");
+      const names = staffList.map((s: { name: string }) => s.name);
+      assert.ok(names.includes("Milindu"));
+      assert.ok(names.includes("Barista"));
+      assert.ok(names.includes("Cashier"));
+    });
+
     it("POST /api/staff verifies Admin Milindu with PIN 1111", async () => {
       const res = await fetch(`${BASE_URL}/api/staff`, {
         method: "POST",
@@ -254,6 +265,34 @@ describe("API Integration Suite", () => {
       const found = orders.find((o: { id: string }) => o.id === testOrderId);
       assert.ok(found);
       assert.equal(found.table?.number, testTableNumber);
+    });
+
+    it("DELETE /api/orders forbids non-admin staff with 403", async () => {
+      assert.ok(testOrderId);
+      const res = await fetch(`${BASE_URL}/api/orders?id=${testOrderId}`, {
+        method: "DELETE",
+        headers: { "x-staff-role": "CASHIER" },
+      });
+      assert.equal(res.status, 403);
+      const body = await res.json();
+      assert.ok(body.error.includes("Only Admins can delete"));
+    });
+
+    it("DELETE /api/orders allows Admin to delete orders and removes them from database", async () => {
+      assert.ok(testOrderId);
+      const res = await fetch(`${BASE_URL}/api/orders?id=${testOrderId}`, {
+        method: "DELETE",
+        headers: { "x-staff-role": "ADMIN" },
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.success);
+
+      // Verify order is removed from GET /api/orders
+      const verifyRes = await fetch(`${BASE_URL}/api/orders`);
+      const orders = await verifyRes.json();
+      const stillExists = orders.some((o: { id: string }) => o.id === testOrderId);
+      assert.equal(stillExists, false, "Order must be completely deleted from database");
     });
   });
 

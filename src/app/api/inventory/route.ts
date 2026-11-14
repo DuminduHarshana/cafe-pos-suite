@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureDefaultInventory } from "@/lib/autoSeed";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/inventory - Fetch raw materials and stock levels
 export async function GET() {
   try {
-    await ensureDefaultInventory();
-
     const items = await prisma.inventoryItem.findMany({
       include: {
         recipes: {

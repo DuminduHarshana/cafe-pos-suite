@@ -94,5 +94,33 @@ describe("UI/UX & Frontend Brand Verification", () => {
     assert.ok(content.includes("onToggleItemServiceCharge"), "CheckoutModal must support item exemption toggle");
     assert.ok(content.includes("isServiceChargeApplicable"), "CheckoutModal must track item service charge eligibility");
   });
+
+  it("AnalyticsDashboard implements Admin-only Order Deletion with confirmation modal", () => {
+    const analyticsPath = path.join(process.cwd(), "src", "components", "analytics", "AnalyticsDashboard.tsx");
+    assert.ok(fs.existsSync(analyticsPath));
+    const content = fs.readFileSync(analyticsPath, "utf-8");
+
+    assert.ok(content.includes("handleInitiateDelete"), "Must implement delete initiation");
+    assert.ok(content.includes("currentStaff.role !== \"ADMIN\"") || content.includes("Only Admin"), "Must enforce Admin-only check");
+    assert.ok(content.includes("Delete Order #") && content.includes("deletingOrder"), "Must display delete confirmation modal");
+    assert.ok(content.includes("DELETE"), "Must dispatch DELETE HTTP request to /api/orders");
+  });
+
+  it("Navbar provides explicit Log Out button and station locking mechanism", () => {
+    const navbarPath = path.join(process.cwd(), "src", "components", "Navbar.tsx");
+    assert.ok(fs.existsSync(navbarPath));
+    const content = fs.readFileSync(navbarPath, "utf-8");
+
+    assert.ok(content.includes("Log Out"), "Navbar must have a visible 'Log Out' button");
+    assert.ok(content.includes("onLockStation"), "Navbar must invoke onLockStation on logout");
+  });
+
+  it("PinModal restricts staff selection strictly to 3 canonical users without duplicates", () => {
+    const pinModalPath = path.join(process.cwd(), "src", "components", "staff", "PinModal.tsx");
+    assert.ok(fs.existsSync(pinModalPath));
+    const content = fs.readFileSync(pinModalPath, "utf-8");
+
+    assert.ok(content.includes(".slice(0, 3)"), "PinModal must cap staff display to strictly 3 members");
+  });
 });
 

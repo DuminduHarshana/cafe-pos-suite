@@ -48,6 +48,23 @@ async function ensureDefaultStaff() {
         where: { name: "Chloe Bennett" },
         data: { name: "Cashier", role: "CASHIER", pin: "4444" },
       });
+
+      // Deduplicate any extra duplicate staff records
+      const allActive = await prisma.staff.findMany({
+        where: { active: true },
+        orderBy: { createdAt: "asc" },
+      });
+      const seenRoles = new Set<string>();
+      for (const member of allActive) {
+        if (seenRoles.has(member.role) || !["ADMIN", "BARISTA", "CASHIER"].includes(member.role)) {
+          await prisma.staff.update({
+            where: { id: member.id },
+            data: { active: false },
+          });
+        } else {
+          seenRoles.add(member.role);
+        }
+      }
     }
     staffChecked = true;
   } catch (e) {
@@ -59,7 +76,7 @@ export async function GET() {
   try {
     await ensureDefaultStaff();
 
-    const staff = await prisma.staff.findMany({
+    const rawStaff = await prisma.staff.findMany({
       where: { active: true },
       select: {
         id: true,
@@ -70,7 +87,19 @@ export async function GET() {
       orderBy: { role: "asc" },
     });
 
-    return NextResponse.json(staff);
+    // Deduplicate by role so only 1 Admin, 1 Barista, 1 Cashier are returned
+    const uniqueMap = new Map<string, typeof rawStaff[0]>();
+    for (const s of rawStaff) {
+      if (!uniqueMap.has(s.role) && ["ADMIN", "BARISTA", "CASHIER"].includes(s.role)) {
+        uniqueMap.set(s.role, s);
+      }
+    }
+
+    const staff = ["ADMIN", "BARISTA", "CASHIER"]
+      .map((role) => uniqueMap.get(role))
+      .filter((s): s is typeof rawStaff[0] => Boolean(s));
+
+    return NextResponse.json(staff.length > 0 ? staff : rawStaff);
   } catch (error) {
     console.error("Failed to fetch staff:", error);
     // Fallback in case DB is momentarily unavailable

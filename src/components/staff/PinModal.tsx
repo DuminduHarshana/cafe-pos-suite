@@ -48,7 +48,14 @@ export default function PinModal({
 
   if (!isOpen) return null;
 
-  const displayStaff = staffList.length > 0 ? staffList : FALLBACK_STAFF;
+  // Deduplicate to ensure strictly the 3 canonical roles (Admin Milindu, Barista, Cashier)
+  const baseStaff = staffList.length > 0 ? staffList : FALLBACK_STAFF;
+  const displayStaff = baseStaff
+    .filter(
+      (s, idx, arr) =>
+        arr.findIndex((o) => o.role === s.role || o.name.toLowerCase() === s.name.toLowerCase()) === idx
+    )
+    .slice(0, 3);
 
   const handleKeyPress = (num: string) => {
     playSound("tap");

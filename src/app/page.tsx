@@ -148,9 +148,11 @@ export default function Home() {
         const data = await res.json();
         setStaffList(data || []);
 
-        // Restore persisted session from localStorage
+        // Restore persisted session from localStorage unless explicitly locked
+        const isLocked = typeof window !== "undefined" && localStorage.getItem("lilly_pos_station_locked") === "true";
         const savedSession = typeof window !== "undefined" ? localStorage.getItem("lilly_pos_session_staff") : null;
-        if (savedSession) {
+
+        if (savedSession && !isLocked) {
           try {
             const parsed: Staff = JSON.parse(savedSession);
             const matched = data?.find((s: Staff) => s.id === parsed.id || s.name === parsed.name);
@@ -164,8 +166,13 @@ export default function Home() {
               setCurrentStaff(data[0]);
             }
           }
-        } else if (data && data.length > 0) {
-          setCurrentStaff(data[0]);
+        } else {
+          // Locked state: Station requires PIN authentication
+          setIsLockedStation(true);
+          setIsPinModalOpen(true);
+          if (data && data.length > 0) {
+            setCurrentStaff(data[0]);
+          }
         }
       }
     } catch (e) {
@@ -240,9 +247,10 @@ export default function Home() {
     setIsLockedStation(false);
     setIsPinModalOpen(false);
 
-    // Save session in localStorage
+    // Save session in localStorage and remove lock flag
     if (typeof window !== "undefined") {
       localStorage.setItem("lilly_pos_session_staff", JSON.stringify(staff));
+      localStorage.removeItem("lilly_pos_station_locked");
     }
 
     // Role-based landing view
@@ -256,6 +264,7 @@ export default function Home() {
   const handleLockStation = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("lilly_pos_session_staff");
+      localStorage.setItem("lilly_pos_station_locked", "true");
     }
     setIsLockedStation(true);
     setIsPinModalOpen(true);
@@ -333,6 +342,7 @@ export default function Home() {
         {activeTab === "analytics" && (
           <AnalyticsDashboard
             analytics={analytics}
+            currentStaff={currentStaff}
             onRefresh={refreshAll}
           />
         )}

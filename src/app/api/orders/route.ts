@@ -225,3 +225,84 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }
+
+// DELETE /api/orders - Permanently remove an order (Admin Only)
+export async function DELETE(req: Request) {
+  try {
+    const url = new URL(req.url);
+    let id = url.searchParams.get("id");
+    let role = req.headers.get("x-staff-role") || url.searchParams.get("role");
+
+    if (!id) {
+      const body = await req.json().catch(() => ({}));
+      id = body?.id;
+      if (!role && body?.role) role = body.role;
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing order ID" }, { status: 400 });
+    }
+
+    // Role-based security check: ONLY ADMIN CAN DELETE ORDERS
+    if (role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Permission Denied: Only Admins can delete placed orders." },
+        { status: 403 }
+      );
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { table: true },
+    });
+
+    if (!order) {
+      return NextResponse.json(
+        { success: true, message: "Order already removed" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete associated order items
+      await tx.orderItem.deleteMany({
+        where: { orderId: id },
+      });
+
+      // 2. Delete the order
+      await tx.order.delete({
+        where: { id },
+      });
+
+      // 3. If order was associated with a table, check if other active orders remain
+      if (order.tableId) {
+        const remainingOrders = await tx.order.count({
+          where: {
+            tableId: order.tableId,
+            status: { in: ["PENDING", "PREPARING", "READY", "SERVED"] },
+          },
+        });
+        if (remainingOrders === 0) {
+          await tx.restaurantTable.update({
+            where: { id: order.tableId },
+            data: { status: "AVAILABLE" },
+          });
+        }
+      }
+    });
+
+    return NextResponse.json(
+      { success: true, message: `Order #${order.orderNumber} deleted successfully` },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+      return NextResponse.json(
+        { success: true, message: "Order already removed" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    console.error("Failed to delete order:", error);
+    return NextResponse.json({ error: "Failed to delete order" }, { status: 500 });
+  }
+}

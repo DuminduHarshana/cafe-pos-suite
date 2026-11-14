@@ -246,10 +246,12 @@ export async function ensureDefaultTables() {
 
 export async function ensureDefaultInventory() {
   if (inventoryChecked) return;
+  inventoryChecked = true;
   try {
     const invCount = await prisma.inventoryItem.count();
-    if (invCount > 0) {
-      inventoryChecked = true;
+    const staffCount = await prisma.staff.count().catch(() => 0);
+    // If inventory has items or if staff exists (database is already initialized/live), NEVER reseed deleted items
+    if (invCount > 0 || staffCount > 0) {
       return;
     }
   } catch (e) {
