@@ -1,101 +1,178 @@
-# 🌐 Cloud Database Deployment & Thermal Printer Guide
+# ============================================================
+# LILLY'S RESTAURANT & CAFE — RAILWAY DEPLOYMENT GUIDE
+# ============================================================
 
-This guide covers connecting your **Artisan Cafe POS & Restaurant Management Suite** to production cloud databases and configuring industrial **ESC/POS thermal receipt printers**.
+## Overview
 
----
-
-## 🖨️ Part 1: Receipt Printer Integrations
-
-The suite supports 4 hardware connectivity methods for thermal receipt printers (Epson, Star Micronics, Munbyn, Bixolon, Sunmi, Xprinter):
-
-### Supported Hardware Protocols
-- **ESC/POS Command Set**: Formats bold text, double-height headers, itemized breakdowns, modifier tags, totals, barcodes, paper feeding, and automatic paper cutting.
-- **Cash Drawer Solenoid Kick**: Emits the `ESC p 0 25 250` electrical pulse to fire standard cash drawers connected via RJ11 / RJ12 to the printer.
-
-### Connectivity Modes
-
-#### 1. Network / LAN / Wi-Fi IP Printing (Recommended for Multi-Station Cafes)
-* Connect your thermal printer to your cafe router using an Ethernet cable or Wi-Fi.
-* Note the printer's assigned IP (e.g. `192.168.1.150`).
-* In the POS header, click the **Printer Icon** &rarr; select **Network LAN**.
-* Set **IP Address** and **Port `9100`** (standard raw socket port).
-* When orders are finalized or sent to the kitchen, the backend connects directly to the printer over raw TCP (`/api/print`) and streams the binary ESC/POS payload.
-
-#### 2. WebUSB Direct Printing (Cable Connected to POS Terminal)
-* Connect a USB thermal printer directly to your iPad (with Lightning/USB-C adapter), Android tablet, or desktop.
-* Click **Printer Icon** &rarr; select **WebUSB**.
-* Click **Test Print** &rarr; Chrome/Edge will display a hardware permission prompt to pair with the printer class device (`classCode: 7`).
-* Prints instantly without third-party drivers or spoolers.
-
-#### 3. Web Bluetooth (BLE) Mobile Printing
-* Ideal for mobile servers and table-side handheld printers (e.g., Sunmi, Munbyn 58mm).
-* Click **Printer Icon** &rarr; select **Bluetooth** &rarr; select your paired thermal printer.
-
-#### 4. System Print Dialog (Universal Fallback)
-* Formats receipts using responsive thermal CSS (`@media print`) targeting 80mm or 58mm paper rolls.
+Railway provides a fully managed cloud platform. You'll deploy:
+1. **PostgreSQL** database (Railway managed)
+2. **Next.js app** (built from your Dockerfile)
 
 ---
 
-## ☁️ Part 2: Cloud Database Deployment
+## Prerequisites
 
-### Instant Provider Switching
+- [ ] GitHub account
+- [ ] Railway account → https://railway.app (sign up free)
+- [ ] Git repo pushed to GitHub (see Step 1)
 
-The project includes an automatic database switcher:
+---
+
+## Step 1 — Push to GitHub
 
 ```bash
-# Switch to Cloud PostgreSQL (Supabase / Neon / AWS RDS / Cloud SQL)
-node scripts/switch-db.js cloud
+cd /Users/duminduharshana/.gemini/antigravity/scratch/cafe-pos-suite
 
-# Switch back to Local SQLite
-node scripts/switch-db.js local
+# Create a repo at https://github.com/new  (name: lilly-pos)
+# Then:
+git remote add origin https://github.com/YOUR_USERNAME/lilly-pos.git
+git push -u origin main
 ```
 
 ---
 
-### Cloud Database Providers Setup
+## Step 2 — Create Railway Project
 
-#### 1. Supabase (Recommended)
-1. Create a free project at [supabase.com](https://supabase.com).
-2. Under **Project Settings &rarr; Database &rarr; Connection Pooling**, copy the connection string.
-3. Switch database mode:
-   ```bash
-   node scripts/switch-db.js cloud
-   ```
-4. Update your `.env`:
-   ```env
-   DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
-   ```
-5. Push schema and seed demo data:
-   ```bash
-   npx prisma db push
-   npx tsx prisma/seed.ts
-   ```
+1. Go to https://railway.app → **New Project**
+2. Click **"Deploy from GitHub repo"**
+3. Authorize Railway to access your GitHub account
+4. Select `lilly-pos` repository → click **Deploy**
 
-#### 2. Neon Serverless Postgres
-1. Create a project at [neon.tech](https://neon.tech).
-2. Copy the pooled connection string into `.env`:
-   ```env
-   DATABASE_URL="postgresql://[USER]:[PASSWORD]@[ENDPOINT].neon.tech/neondb?sslmode=require"
-   ```
-3. Run `npx prisma db push && npx tsx prisma/seed.ts`.
-
-#### 3. Self-Hosted Docker Compose with PostgreSQL
-To host the full stack on an on-premise cafe server, mini PC, or VPS:
-
-```bash
-docker compose up -d --build
-```
-This boots:
-* A containerized **PostgreSQL 16** database with health checks and persistent volume storage.
-* The Next.js 14 POS application exposed on port `3005`.
+Railway will auto-detect the `Dockerfile` and start building.
 
 ---
 
-## 📱 iPad / Tablet Deployment Checklist
+## Step 3 — Add PostgreSQL Database
 
-1. Deploy app to Vercel, Railway, or your local cafe server IP (e.g. `http://192.168.1.50:3005`).
-2. Open the URL on your iPad in **Safari**.
-3. Tap the **Share icon &rarr; Add to Home Screen**.
-4. The web application will launch in **fullscreen native mode** (no browser UI, no address bar, hardware acceleration enabled).
-5. Open printer settings in the POS navigation bar to link to your counter and kitchen thermal printers.
+1. Inside your Railway project → click **"+ New Service"**
+2. Select **"Database" → "PostgreSQL"**
+3. Railway provisions a free PostgreSQL instance instantly
+4. Click the Postgres service → go to **"Variables"** tab
+5. Copy the **`DATABASE_URL`** value shown there
 
+---
+
+## Step 4 — Set Environment Variables on the App Service
+
+1. Click your **app service** (not the Postgres one)
+2. Go to **"Variables"** tab → click **"+ New Variable"**
+3. Add these variables:
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Paste the PostgreSQL `DATABASE_URL` from Step 3 |
+| `NODE_ENV` | `production` |
+| `NEXT_TELEMETRY_DISABLED` | `1` |
+| `NEXTAUTH_SECRET` | Generate: `openssl rand -base64 32` (paste result) |
+
+> **Tip:** Railway also lets you click "Add Reference" to link the Postgres
+> service's `DATABASE_URL` directly — no copy-paste needed.
+
+---
+
+## Step 5 — Set the Schema for Production
+
+The app needs to use the **PostgreSQL schema** in production. Railway's
+Dockerfile already handles this — it runs `prisma migrate deploy` on startup
+using the `DATABASE_URL` you set above.
+
+No manual schema switching needed.
+
+---
+
+## Step 6 — Trigger a Redeploy
+
+After setting variables:
+1. Railway → your app service → **"Deployments"** tab
+2. Click **"Redeploy"** on the latest build
+3. Watch the build logs — you should see:
+   ```
+   ✓ Prisma migrate deploy — 1 migration applied
+   ✓ Ready on http://0.0.0.0:3000
+   ```
+
+---
+
+## Step 7 — Seed Demo Data (Optional)
+
+After the first successful deploy, seed Lilly's demo menu/staff/tables:
+
+1. Railway → your app service → **"Settings"** → scroll to **"Deploy"**
+2. Temporarily set **Start Command** to:
+   ```
+   npx tsx prisma/seed.ts && node ./node_modules/next/dist/bin/next start -p $PORT
+   ```
+3. Redeploy → once seeded, revert Start Command back to empty (uses Dockerfile CMD)
+
+OR connect directly via Railway CLI:
+```bash
+npm install -g @railway/cli
+railway login
+railway link          # select your project
+railway run npx tsx prisma/seed.ts
+```
+
+---
+
+## Step 8 — Get Your Live URL
+
+1. Railway → app service → **"Settings"** → **"Domains"**
+2. Click **"Generate Domain"** → you'll get a URL like:
+   ```
+   https://lilly-pos-production.up.railway.app
+   ```
+3. Your POS is live! Add it to home screen on iPhone/Android as a PWA.
+
+---
+
+## Custom Domain (Optional)
+
+1. Railway → Domains → **"Add Custom Domain"**
+2. Enter `pos.lillysrestaurant.com` (or whatever you own)
+3. Add the CNAME record Railway shows you in your DNS provider
+4. Done — SSL is automatic
+
+---
+
+## Staff PINs (Demo Seed)
+
+| Staff | PIN | Role |
+|-------|-----|------|
+| Julian Vance | `1111` | Admin |
+| Mateo Silva | `3333` | Barista |
+| Chloe Bennett | `4444` | Cashier |
+
+---
+
+## Printer Setup on Live App
+
+After deploy, open the app → click the **printer icon** (top right):
+- **Network/LAN printer:** Enter IP + port 9100
+- **USB:** Requires HTTPS origin (Railway provides this automatically)
+- **System Print:** Works on any OS via browser print dialog
+
+---
+
+## Environment Variables Reference
+
+```env
+# Required
+DATABASE_URL=postgresql://...     # From Railway Postgres service
+NODE_ENV=production
+NEXT_TELEMETRY_DISABLED=1
+
+# Optional
+NEXTAUTH_SECRET=...               # Random 32-byte base64 string
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| Build fails: `prisma generate` error | Make sure `prisma/schema.postgres.prisma` exists in repo |
+| App crashes: `DATABASE_URL not set` | Check Variables tab — Railway must have `DATABASE_URL` |
+| Blank page after deploy | Check Deploy logs for JS errors; verify `NODE_ENV=production` |
+| Migrations fail | Ensure `prisma/migrations/` folder is committed to git |
+| Port binding error | Railway injects `$PORT` automatically; Dockerfile uses it correctly |
