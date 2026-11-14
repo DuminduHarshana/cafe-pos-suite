@@ -29,3 +29,4 @@ describe("Currency Utilities (Sri Lankan Rupee)", () => {
     assert.equal(formatCurrency("850.50"), "Rs. 850.50");
   });
 });
+

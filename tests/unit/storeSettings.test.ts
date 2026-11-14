@@ -24,3 +24,4 @@ describe("Store Settings Default Configuration", () => {
     assert.equal(settings.phone, "0777926230");
   });
 });
+

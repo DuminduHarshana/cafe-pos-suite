@@ -71,3 +71,4 @@ describe("UI/UX & Frontend Brand Verification", () => {
     assert.ok(content.includes("0777926230"), "Settings must contain phone 0777926230");
   });
 });
+
