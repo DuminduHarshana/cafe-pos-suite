@@ -1,136 +1,141 @@
 # ============================================================
-# LILLY'S RESTAURANT & CAFE — RAILWAY DEPLOYMENT GUIDE
+# LILLY'S RESTAURANT & CAFE — VERCEL DEPLOYMENT GUIDE
 # ============================================================
 
-## Overview
-
-Railway provides a fully managed cloud platform. You'll deploy:
-1. **PostgreSQL** database (Railway managed)
-2. **Next.js app** (built from your Dockerfile)
-
----
-
-## Prerequisites
-
-- [ ] GitHub account
-- [ ] Railway account → https://railway.app (sign up free)
-- [ ] Git repo pushed to GitHub (see Step 1)
+## Why Vercel?
+- **Free Hobby plan** — no trial, no expiry
+- Native Next.js support (made by the same team)
+- Automatic HTTPS + global CDN
+- Zero-config deployments from GitHub
 
 ---
 
-## Step 1 — Push to GitHub
+## Architecture on Vercel
+
+```
+GitHub repo ──push──▶ Vercel (Next.js app)
+                           │
+                    DATABASE_URL
+                           │
+                     Neon Postgres ◀── free tier, 0.5 GB
+```
+
+> Vercel itself has no built-in persistent database, so we use
+> **Neon** — a serverless Postgres with a generous free tier.
+
+---
+
+## Step 1 — Get a Free Postgres Database (Neon)
+
+1. Go to **https://neon.tech** → sign up free (GitHub login works)
+2. Click **"New Project"** → name it `lilly-pos`
+3. Choose region closest to you → **Create**
+4. On the dashboard, click **"Connection string"**
+5. Copy the full string — it looks like:
+   ```
+   postgresql://neondb_owner:AbCdEfG@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   ```
+6. Keep this tab open — you'll paste it into Vercel in Step 4.
+
+---
+
+## Step 2 — Push Code to GitHub
 
 ```bash
 cd /Users/duminduharshana/.gemini/antigravity/scratch/cafe-pos-suite
 
-# Create a repo at https://github.com/new  (name: lilly-pos)
-# Then:
+# 1. Create a repo at https://github.com/new  (name: lilly-pos)
+# 2. Then:
 git remote add origin https://github.com/YOUR_USERNAME/lilly-pos.git
 git push -u origin main
 ```
 
 ---
 
-## Step 2 — Create Railway Project
+## Step 3 — Import to Vercel
 
-1. Go to https://railway.app → **New Project**
-2. Click **"Deploy from GitHub repo"**
-3. Authorize Railway to access your GitHub account
-4. Select `lilly-pos` repository → click **Deploy**
-
-Railway will auto-detect the `Dockerfile` and start building.
-
----
-
-## Step 3 — Add PostgreSQL Database
-
-1. Inside your Railway project → click **"+ New Service"**
-2. Select **"Database" → "PostgreSQL"**
-3. Railway provisions a free PostgreSQL instance instantly
-4. Click the Postgres service → go to **"Variables"** tab
-5. Copy the **`DATABASE_URL`** value shown there
+1. Go to **https://vercel.com** → sign up / log in (GitHub login)
+2. Click **"Add New Project"**
+3. Click **"Import"** next to your `lilly-pos` repo
+4. Vercel auto-detects **Next.js** ✅
+5. Under **"Build & Development Settings"**, Vercel will use `vercel.json` automatically — no changes needed
 
 ---
 
-## Step 4 — Set Environment Variables on the App Service
+## Step 4 — Add Environment Variables
 
-1. Click your **app service** (not the Postgres one)
-2. Go to **"Variables"** tab → click **"+ New Variable"**
-3. Add these variables:
+Before clicking Deploy, scroll to **"Environment Variables"** and add:
 
-| Variable | Value |
+| Name | Value |
 |---|---|
-| `DATABASE_URL` | Paste the PostgreSQL `DATABASE_URL` from Step 3 |
+| `DATABASE_URL` | Paste your Neon connection string from Step 1 |
 | `NODE_ENV` | `production` |
 | `NEXT_TELEMETRY_DISABLED` | `1` |
-| `NEXTAUTH_SECRET` | Generate: `openssl rand -base64 32` (paste result) |
 
-> **Tip:** Railway also lets you click "Add Reference" to link the Postgres
-> service's `DATABASE_URL` directly — no copy-paste needed.
+Then click **"Deploy"** 🚀
 
 ---
 
-## Step 5 — Set the Schema for Production
+## Step 5 — Watch the Build
 
-The app needs to use the **PostgreSQL schema** in production. Railway's
-Dockerfile already handles this — it runs `prisma migrate deploy` on startup
-using the `DATABASE_URL` you set above.
-
-No manual schema switching needed.
-
----
-
-## Step 6 — Trigger a Redeploy
-
-After setting variables:
-1. Railway → your app service → **"Deployments"** tab
-2. Click **"Redeploy"** on the latest build
-3. Watch the build logs — you should see:
-   ```
-   ✓ Prisma migrate deploy — 1 migration applied
-   ✓ Ready on http://0.0.0.0:3000
-   ```
-
----
-
-## Step 7 — Seed Demo Data (Optional)
-
-After the first successful deploy, seed Lilly's demo menu/staff/tables:
-
-1. Railway → your app service → **"Settings"** → scroll to **"Deploy"**
-2. Temporarily set **Start Command** to:
-   ```
-   npx tsx prisma/seed.ts && node ./node_modules/next/dist/bin/next start -p $PORT
-   ```
-3. Redeploy → once seeded, revert Start Command back to empty (uses Dockerfile CMD)
-
-OR connect directly via Railway CLI:
-```bash
-npm install -g @railway/cli
-railway login
-railway link          # select your project
-railway run npx tsx prisma/seed.ts
+Build logs will show:
+```
+▶ Running build command: npm run vercel-build
+✓ Switched to PostgreSQL schema
+✓ Prisma Client generated
+✓ 1 migration applied (20261113000000_init)
+✓ Next.js compiled — 12 routes
+✓ Build complete
 ```
 
----
-
-## Step 8 — Get Your Live URL
-
-1. Railway → app service → **"Settings"** → **"Domains"**
-2. Click **"Generate Domain"** → you'll get a URL like:
-   ```
-   https://lilly-pos-production.up.railway.app
-   ```
-3. Your POS is live! Add it to home screen on iPhone/Android as a PWA.
+First build takes ~2 minutes. Subsequent deploys: ~45 seconds.
 
 ---
 
-## Custom Domain (Optional)
+## Step 6 — Seed Demo Data
 
-1. Railway → Domains → **"Add Custom Domain"**
-2. Enter `pos.lillysrestaurant.com` (or whatever you own)
-3. Add the CNAME record Railway shows you in your DNS provider
-4. Done — SSL is automatic
+After first successful deploy, seed Lilly's menu/staff/tables.
+
+**Option A — Vercel CLI (easiest):**
+```bash
+npm install -g vercel
+vercel login
+vercel env pull .env.production.local   # pulls DATABASE_URL locally
+npx tsx prisma/seed.ts                  # seeds via Neon remotely
+```
+
+**Option B — Neon SQL Editor:**
+1. Go to **https://neon.tech** → your project → **"SQL Editor"**
+2. Run the seed inserts manually (or ask me and I'll export a `.sql` seed file)
+
+---
+
+## Step 7 — Get Your Live URL
+
+Vercel gives you:
+```
+https://lilly-pos.vercel.app
+```
+
+Or your own custom domain (see below).
+
+**Add to home screen:** Open the URL on iPhone/Android → Share → "Add to Home Screen" — it installs as a PWA app icon 📱
+
+---
+
+## Custom Domain (Optional — Free)
+
+1. Vercel → your project → **"Settings"** → **"Domains"**
+2. Type your domain e.g. `pos.lillyscafe.com` → Add
+3. Vercel shows you a CNAME record → add it in your DNS provider
+4. SSL is automatic ✅
+
+---
+
+## Automatic Deploys
+
+Every `git push` to `main` → Vercel redeploys automatically.
+Every Pull Request → Vercel creates a preview URL for testing.
 
 ---
 
@@ -144,35 +149,24 @@ railway run npx tsx prisma/seed.ts
 
 ---
 
-## Printer Setup on Live App
-
-After deploy, open the app → click the **printer icon** (top right):
-- **Network/LAN printer:** Enter IP + port 9100
-- **USB:** Requires HTTPS origin (Railway provides this automatically)
-- **System Print:** Works on any OS via browser print dialog
-
----
-
-## Environment Variables Reference
-
-```env
-# Required
-DATABASE_URL=postgresql://...     # From Railway Postgres service
-NODE_ENV=production
-NEXT_TELEMETRY_DISABLED=1
-
-# Optional
-NEXTAUTH_SECRET=...               # Random 32-byte base64 string
-```
-
----
-
 ## Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| Build fails: `prisma generate` error | Make sure `prisma/schema.postgres.prisma` exists in repo |
-| App crashes: `DATABASE_URL not set` | Check Variables tab — Railway must have `DATABASE_URL` |
-| Blank page after deploy | Check Deploy logs for JS errors; verify `NODE_ENV=production` |
-| Migrations fail | Ensure `prisma/migrations/` folder is committed to git |
-| Port binding error | Railway injects `$PORT` automatically; Dockerfile uses it correctly |
+| `Error: DATABASE_URL not set` | Re-check Env Vars in Vercel project settings |
+| Build fails at `prisma migrate deploy` | Check Neon DB is active; verify connection string includes `?sslmode=require` |
+| `PrismaClientInitializationError` | Make sure `serverComponentsExternalPackages` is in `next.config.mjs` |
+| Slow cold starts | Normal for serverless — first request after idle wakes the function |
+| `Module not found: prisma` | Vercel build runs `npm ci` — make sure `prisma` is in `dependencies` not `devDependencies` |
+
+---
+
+## Key Files Added for Vercel
+
+| File | Purpose |
+|---|---|
+| `vercel.json` | Tells Vercel to use `npm run vercel-build` |
+| `package.json` → `vercel-build` | Swaps schema → generates client → migrates → builds |
+| `next.config.mjs` | `serverComponentsExternalPackages` for Prisma |
+| `prisma/migrations/` | Migration files Prisma runs on first deploy |
+| `.env.example` | Documents all required env vars |
