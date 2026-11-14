@@ -44,18 +44,27 @@ export async function GET() {
       return acc;
     }, {});
 
-    return NextResponse.json({
-      metrics: {
-        totalRevenue,
-        totalOrders,
-        avgTicket,
-        totalTips,
-        activeOrdersCount: orders.filter((o) => ["PENDING", "PREPARING", "READY"].includes(o.status)).length,
+    return NextResponse.json(
+      {
+        metrics: {
+          totalRevenue,
+          totalOrders,
+          avgTicket,
+          totalTips,
+          activeOrdersCount: orders.filter((o) => ["PENDING", "PREPARING", "READY"].includes(o.status)).length,
+        },
+        topItems,
+        paymentMethods,
+        recentOrders: orders.slice(0, 8),
       },
-      topItems,
-      paymentMethods,
-      recentOrders: orders.slice(0, 8),
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error) {
     console.error("Failed to fetch analytics:", error);
     return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 });

@@ -49,6 +49,7 @@ export default function PosStation({
   const [store, setStore] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
   const [serviceChargeRate, setServiceChargeRate] = useState<number>(10);
   const [receiptDefaultView, setReceiptDefaultView] = useState<"customer" | "kitchen">("customer");
+  const [mobileTab, setMobileTab] = useState<"menu" | "cart">("menu");
 
   // Modals
   const [activeItemForModifiers, setActiveItemForModifiers] = useState<MenuItem | null>(null);
@@ -180,6 +181,7 @@ export default function PosStation({
       setDiscountRate(0);
       setTipAmount(0);
       setCustomerName("");
+      setMobileTab("menu");
     }
   };
 
@@ -330,8 +332,42 @@ export default function PosStation({
 
   return (
     <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden bg-[#0e0e11]">
+      {/* Mobile Station Tab Switcher (Visible only on < md screens) */}
+      <div className="md:hidden flex items-center bg-[#121215] border-b border-neutral-800 p-2 gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            playSound("tap");
+            setMobileTab("menu");
+          }}
+          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition active:scale-95 ${
+            mobileTab === "menu"
+              ? "bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20"
+              : "bg-neutral-900 text-neutral-400 border border-neutral-800"
+          }`}
+        >
+          <Coffee className="w-3.5 h-3.5" />
+          <span>Menu ({filteredItems.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            playSound("tap");
+            setMobileTab("cart");
+          }}
+          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition active:scale-95 ${
+            mobileTab === "cart"
+              ? "bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20"
+              : "bg-neutral-900 text-neutral-400 border border-neutral-800"
+          }`}
+        >
+          <ShoppingBag className="w-3.5 h-3.5" />
+          <span>Cart ({cartItems.length} &bull; {formatCurrency(total)})</span>
+        </button>
+      </div>
+
       {/* LEFT SECTION: Search, Categories, Menu Grid */}
-      <div className="flex-1 flex flex-col min-w-0 border-r border-neutral-800/80 overflow-hidden">
+      <div className={`flex-1 flex-col min-w-0 border-r border-neutral-800/80 overflow-hidden ${mobileTab === "menu" ? "flex" : "hidden md:flex"}`}>
         {/* Top Control Bar: Search & Category Pills */}
         <div className="p-4 bg-[#121215] border-b border-neutral-800 space-y-3 shrink-0">
           <div className="flex items-center space-x-3">
@@ -481,10 +517,52 @@ export default function PosStation({
             </div>
           )}
         </div>
+
+        {/* Mobile Quick Cart Floating Bar */}
+        {cartItems.length > 0 && (
+          <div className="md:hidden p-3 bg-[#121215]/95 backdrop-blur-md border-t border-neutral-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                playSound("tap");
+                setMobileTab("cart");
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center justify-between shadow-lg shadow-amber-500/20 transition active:scale-98"
+            >
+              <div className="flex items-center space-x-2">
+                <span className="w-5 h-5 rounded-md bg-neutral-950 text-amber-400 font-mono text-[11px] flex items-center justify-center">
+                  {cartItems.reduce((acc, i) => acc + i.quantity, 0)}
+                </span>
+                <span>Review Cart &amp; Checkout</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="font-mono">{formatCurrency(total)}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* RIGHT SECTION: Cart Drawer / Billing Pad */}
-      <div className="w-full md:w-[380px] lg:w-[420px] bg-[#121215] flex flex-col shrink-0 select-none border-t md:border-t-0 md:border-l border-neutral-800">
+      <div className={`w-full md:w-[380px] lg:w-[420px] bg-[#121215] flex-col shrink-0 select-none border-t md:border-t-0 md:border-l border-neutral-800 ${mobileTab === "cart" ? "flex flex-1" : "hidden md:flex"}`}>
+        {/* Mobile Back to Menu Header */}
+        <div className="md:hidden px-4 py-2.5 bg-[#16161b] border-b border-neutral-800 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              playSound("tap");
+              setMobileTab("menu");
+            }}
+            className="text-xs text-amber-400 font-bold flex items-center space-x-1 hover:underline"
+          >
+            <span>&larr; Back to Catalog</span>
+          </button>
+          <span className="text-xs text-neutral-400 font-mono">
+            {cartItems.length} {cartItems.length === 1 ? "Item" : "Items"}
+          </span>
+        </div>
+
         {/* Order Mode Toggle & Table Selection */}
         <div className="p-4 bg-[#141418] border-b border-neutral-800 space-y-3 shrink-0">
           <div className="grid grid-cols-3 gap-1.5 bg-neutral-900 p-1 rounded-2xl border border-neutral-800">

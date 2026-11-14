@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Utensils,
   ShoppingBag,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { Order } from "@/types";
 import { playSound } from "@/lib/sound";
@@ -22,6 +24,8 @@ interface KitchenDisplayProps {
 export default function KitchenDisplay({ orders, onRefresh }: KitchenDisplayProps) {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [filterType, setFilterType] = useState<"ALL" | "DINE_IN" | "TAKEAWAY">("ALL");
+  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
 
   // Keep live timers in sync
   useEffect(() => {
@@ -51,6 +55,27 @@ export default function KitchenDisplay({ orders, onRefresh }: KitchenDisplayProp
       onRefresh();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancellingOrder) return;
+    setIsCancelling(true);
+    playSound("alert");
+    try {
+      const res = await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: cancellingOrder.id, status: "CANCELLED" }),
+      });
+      if (!res.ok) throw new Error("Failed to cancel order");
+      setCancellingOrder(null);
+      onRefresh();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to cancel order. Please try again.");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -248,11 +273,22 @@ export default function KitchenDisplay({ orders, onRefresh }: KitchenDisplayProp
                     )}
                   </div>
 
-                  {/* Bump Status Action */}
-                  <div className="p-3 border-t border-neutral-800/80 bg-neutral-900/60">
+                  {/* Bump Status Action & Cancel Action */}
+                  <div className="p-3 border-t border-neutral-800/80 bg-neutral-900/60 flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playSound("tap");
+                        setCancellingOrder(order);
+                      }}
+                      className="p-2.5 rounded-xl bg-neutral-800 hover:bg-rose-500/20 text-neutral-400 hover:text-rose-400 border border-neutral-700/60 transition shrink-0 active:scale-95"
+                      title="Cancel Order"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleBumpStatus(order.id, order.status)}
-                      className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition shadow-md active:scale-98 ${
+                      className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition shadow-md active:scale-98 ${
                         order.status === "PENDING"
                           ? "bg-amber-500 hover:bg-amber-400 text-neutral-950"
                           : order.status === "PREPARING"
@@ -286,6 +322,53 @@ export default function KitchenDisplay({ orders, onRefresh }: KitchenDisplayProp
           </div>
         )}
       </div>
+
+      {/* Cancel Order Confirmation Modal */}
+      {cancellingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#18181c] border border-neutral-800 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6 text-center animate-in fade-in zoom-in-95">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-neutral-100">
+              Cancel Order #{cancellingOrder.orderNumber}?
+            </h3>
+            <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+              This will cancel the order, remove it from the kitchen queue, and release any assigned dining table.
+            </p>
+            {cancellingOrder.table && (
+              <p className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl py-1.5 px-3 mt-3">
+                Assigned Table: {cancellingOrder.table.number} - {cancellingOrder.table.name}
+              </p>
+            )}
+            <div className="flex items-center space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setCancellingOrder(null)}
+                disabled={isCancelling}
+                className="flex-1 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs transition active:scale-95"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={isCancelling}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-600/30 flex items-center justify-center space-x-1.5 active:scale-95"
+              >
+                {isCancelling ? (
+                  <span>Cancelling...</span>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>Confirm Cancel</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

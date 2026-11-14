@@ -90,33 +90,33 @@ export default function Navbar({
   };
 
   return (
-    <header className="h-16 bg-[#121215] border-b border-neutral-800/80 px-4 flex items-center justify-between select-none shrink-0 z-30">
+    <header className="min-h-[4rem] bg-[#121215] border-b border-neutral-800/80 px-2 sm:px-4 pt-[env(safe-area-inset-top,0px)] flex items-center justify-between select-none shrink-0 z-30 gap-2">
       {/* Brand logo & Cafe name */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
         {store.logoUrl ? (
           <img
             src={store.logoUrl}
             alt={store.storeName}
-            className="w-10 h-10 rounded-full object-cover border border-amber-500/40 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/20"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-amber-500/40 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/20"
           />
         ) : null}
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-base tracking-wide bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent uppercase">
+          <div className="flex items-center space-x-1.5">
+            <span className="font-bold text-xs sm:text-sm md:text-base tracking-wide bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent uppercase truncate max-w-[110px] sm:max-w-[200px] md:max-w-none">
               {store.storeName || "LILLY'S RESTAURANT & CAFE"}
             </span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              PRO POS
+            <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 hidden xs:inline-block">
+              POS
             </span>
           </div>
-          <p className="text-[11px] text-neutral-400 hidden sm:block truncate max-w-[280px]">
+          <p className="text-[10px] text-neutral-400 hidden lg:block truncate max-w-[240px]">
             {store.address} &bull; {store.phone}
           </p>
         </div>
       </div>
 
       {/* Center Station Switcher Buttons */}
-      <nav className="flex items-center space-x-1 bg-neutral-900/90 p-1 rounded-2xl border border-neutral-800 max-w-full overflow-x-auto no-scrollbar">
+      <nav className="flex items-center space-x-1 bg-neutral-900/90 p-1 rounded-2xl border border-neutral-800 overflow-x-auto no-scrollbar shrink min-w-0">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -127,7 +127,7 @@ export default function Navbar({
               key={item.id}
               onClick={() => handleTabClick(item)}
               title={isLockedForRole ? "Requires Admin Access" : undefined}
-              className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+              className={`relative flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap shrink-0 ${
                 isActive
                   ? "bg-amber-500 text-neutral-950 font-semibold shadow-md shadow-amber-500/20"
                   : isLockedForRole
@@ -135,8 +135,8 @@ export default function Navbar({
                   : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60"
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? "text-neutral-950" : isLockedForRole ? "text-neutral-500" : "text-neutral-400"}`} />
-              <span className="hidden md:inline">{item.label}</span>
+              <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isActive ? "text-neutral-950" : isLockedForRole ? "text-neutral-500" : "text-neutral-400"}`} />
+              <span className="hidden xl:inline">{item.label}</span>
               {isLockedForRole && (
                 <Shield className="w-3 h-3 text-neutral-500 hidden sm:inline" />
               )}
@@ -157,7 +157,7 @@ export default function Navbar({
       </nav>
 
       {/* Right side: Clock, Network, and Staff Switcher */}
-      <div className="flex items-center space-x-2.5">
+      <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
         {/* Real-time Clock */}
         <div className="hidden lg:flex flex-col text-right">
           <span className="font-mono text-xs font-semibold text-neutral-200">{time}</span>
@@ -165,7 +165,7 @@ export default function Navbar({
         </div>
 
         {/* Network status */}
-        <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
+        <div className="hidden md:flex items-center space-x-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
           <Wifi className="w-3.5 h-3.5" />
           <span className="text-[11px] font-medium">Online</span>
         </div>
@@ -176,7 +176,7 @@ export default function Navbar({
             playSound("tap");
             onOpenPrinterModal();
           }}
-          className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-amber-500/40 hover:bg-neutral-800 text-neutral-400 hover:text-amber-400 transition"
+          className="p-1.5 sm:p-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-amber-500/40 hover:bg-neutral-800 text-neutral-400 hover:text-amber-400 transition"
           title="Thermal Printer Settings"
         >
           <Printer className="w-4 h-4" />
@@ -188,17 +188,17 @@ export default function Navbar({
             playSound("tap");
             onOpenPinModal();
           }}
-          className="flex items-center space-x-2.5 px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800 transition text-left group"
+          className="flex items-center space-x-1.5 sm:space-x-2.5 px-2 sm:px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800 transition text-left group"
           title="Switch Staff / Enter PIN"
         >
           {currentStaff.avatar ? (
             <img
               src={currentStaff.avatar}
               alt={currentStaff.name}
-              className="w-7 h-7 rounded-lg object-cover ring-1 ring-amber-500/40"
+              className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg object-cover ring-1 ring-amber-500/40"
             />
           ) : (
-            <div className="w-7 h-7 rounded-lg bg-neutral-800 text-amber-400 flex items-center justify-center font-bold text-xs">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-neutral-800 text-amber-400 flex items-center justify-center font-bold text-xs">
               {currentStaff.name[0]}
             </div>
           )}
@@ -210,7 +210,7 @@ export default function Navbar({
               {currentStaff.role.toLowerCase()}
             </span>
           </div>
-          <Lock className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-300 ml-0.5" />
+          <Lock className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-300 ml-0.5 hidden xs:block" />
         </button>
 
         {/* Explicit Sign Out / Lock Station Button */}
@@ -220,7 +220,7 @@ export default function Navbar({
               playSound("tap");
               onLockStation();
             }}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 font-semibold text-xs transition active:scale-95 shadow-sm"
+            className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 font-semibold text-xs transition active:scale-95 shadow-sm"
             title="Sign Out & Lock Terminal"
           >
             <LogOut className="w-3.5 h-3.5 text-rose-400" />

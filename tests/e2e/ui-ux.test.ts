@@ -122,5 +122,33 @@ describe("UI/UX & Frontend Brand Verification", () => {
 
     assert.ok(content.includes(".slice(0, 3)"), "PinModal must cap staff display to strictly 3 members");
   });
+
+  it("KitchenDisplay provides Cancel Order button and confirmation modal to cancel tickets & free tables", () => {
+    const kdsPath = path.join(process.cwd(), "src", "components", "kds", "KitchenDisplay.tsx");
+    assert.ok(fs.existsSync(kdsPath));
+    const content = fs.readFileSync(kdsPath, "utf-8");
+
+    assert.ok(content.includes("Cancel Order"), "KitchenDisplay must provide Cancel Order trigger");
+    assert.ok(content.includes("cancellingOrder"), "KitchenDisplay must track cancellingOrder state");
+    assert.ok(content.includes("STATUS") || content.includes('"CANCELLED"'), "KitchenDisplay must support CANCELLED status dispatch");
+    assert.ok(content.includes("Confirm Cancel"), "KitchenDisplay must provide confirmation modal before cancellation");
+  });
+
+  it("Responsive & PWA layout features are present in POS station and Navbar", () => {
+    const posPath = path.join(process.cwd(), "src", "components", "pos", "PosStation.tsx");
+    assert.ok(fs.existsSync(posPath));
+    const posContent = fs.readFileSync(posPath, "utf-8");
+
+    assert.ok(posContent.includes("mobileTab"), "PosStation must support mobile tab switching");
+    assert.ok(posContent.includes("md:hidden"), "PosStation must provide responsive mobile controls");
+
+    const cssPath = path.join(process.cwd(), "src", "app", "globals.css");
+    const cssContent = fs.readFileSync(cssPath, "utf-8");
+    assert.ok(cssContent.includes("safe-area-inset"), "globals.css must support PWA safe-area-inset");
+
+    const navbarPath = path.join(process.cwd(), "src", "components", "Navbar.tsx");
+    const navbarContent = fs.readFileSync(navbarPath, "utf-8");
+    assert.ok(navbarContent.includes("safe-area-inset-top"), "Navbar must handle safe-area-inset-top");
+  });
 });
 

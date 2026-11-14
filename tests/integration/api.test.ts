@@ -267,6 +267,29 @@ describe("API Integration Suite", () => {
       assert.equal(found.table?.number, testTableNumber);
     });
 
+    it("PATCH /api/orders can cancel an order and frees up assigned dining table", async () => {
+      assert.ok(testOrderId);
+      assert.ok(testTableId);
+
+      // Cancel the order
+      const cancelRes = await fetch(`${BASE_URL}/api/orders`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: testOrderId, status: "CANCELLED" }),
+      });
+      assert.equal(cancelRes.status, 200);
+      const updatedOrder = await cancelRes.json();
+      assert.equal(updatedOrder.status, "CANCELLED");
+
+      // Verify the table status is set back to AVAILABLE
+      const tablesRes = await fetch(`${BASE_URL}/api/tables`);
+      assert.equal(tablesRes.status, 200);
+      const tables = await tablesRes.json();
+      const updatedTable = tables.find((t: { id: string }) => t.id === testTableId);
+      assert.ok(updatedTable);
+      assert.equal(updatedTable.status, "AVAILABLE", "Table must be marked AVAILABLE when order is cancelled");
+    });
+
     it("DELETE /api/orders forbids non-admin staff with 403", async () => {
       assert.ok(testOrderId);
       const res = await fetch(`${BASE_URL}/api/orders?id=${testOrderId}`, {
@@ -278,11 +301,12 @@ describe("API Integration Suite", () => {
       assert.ok(body.error.includes("Only Admins can delete"));
     });
 
-    it("DELETE /api/orders allows Admin to delete orders and removes them from database", async () => {
+    it("DELETE /api/orders allows Admin with PIN 1111 in body/header to delete order", async () => {
       assert.ok(testOrderId);
       const res = await fetch(`${BASE_URL}/api/orders?id=${testOrderId}`, {
         method: "DELETE",
-        headers: { "x-staff-role": "ADMIN" },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: "1111" }),
       });
       assert.equal(res.status, 200);
       const body = await res.json();

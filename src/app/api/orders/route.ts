@@ -206,8 +206,8 @@ export async function PATCH(req: Request) {
       },
     });
 
-    // If order was completed and had a table, free up the table!
-    if (status === "COMPLETED" && currentOrder.tableId) {
+    // If order was completed or cancelled and had a table, free up the table!
+    if ((status === "COMPLETED" || status === "CANCELLED") && currentOrder.tableId) {
       await prisma.restaurantTable.update({
         where: { id: currentOrder.tableId },
         data: { status: "AVAILABLE" },
@@ -219,7 +219,9 @@ export async function PATCH(req: Request) {
       });
     }
 
-    return NextResponse.json(updated);
+    return NextResponse.json(updated, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   } catch (error) {
     console.error("Failed to update order:", error);
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
@@ -230,21 +232,31 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const url = new URL(req.url);
-    let id = url.searchParams.get("id");
-    let role = req.headers.get("x-staff-role") || url.searchParams.get("role");
+    const body = await req.json().catch(() => ({}));
 
-    if (!id) {
-      const body = await req.json().catch(() => ({}));
-      id = body?.id;
-      if (!role && body?.role) role = body.role;
-    }
+    const id = url.searchParams.get("id") || body?.id;
+    const role = (
+      req.headers.get("x-staff-role") ||
+      url.searchParams.get("role") ||
+      body?.role ||
+      ""
+    ).toUpperCase();
+    const pin = (
+      req.headers.get("x-staff-pin") ||
+      url.searchParams.get("pin") ||
+      body?.pin ||
+      ""
+    ).trim();
 
     if (!id) {
       return NextResponse.json({ error: "Missing order ID" }, { status: 400 });
     }
 
     // Role-based security check: ONLY ADMIN CAN DELETE ORDERS
-    if (role !== "ADMIN") {
+    // Authorized if role is ADMIN, or PIN is 1111 (Admin Milindu PIN)
+    const isAuthorized = role === "ADMIN" || pin === "1111";
+
+    if (!isAuthorized) {
       return NextResponse.json(
         { error: "Permission Denied: Only Admins can delete placed orders." },
         { status: 403 }
@@ -259,7 +271,7 @@ export async function DELETE(req: Request) {
     if (!order) {
       return NextResponse.json(
         { success: true, message: "Order already removed" },
-        { headers: { "Cache-Control": "no-store" } }
+        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
       );
     }
 
@@ -293,13 +305,13 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json(
       { success: true, message: `Order #${order.orderNumber} deleted successfully` },
-      { headers: { "Cache-Control": "no-store" } }
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   } catch (error: unknown) {
     if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
       return NextResponse.json(
         { success: true, message: "Order already removed" },
-        { headers: { "Cache-Control": "no-store" } }
+        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
       );
     }
     console.error("Failed to delete order:", error);
