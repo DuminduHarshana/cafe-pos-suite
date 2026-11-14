@@ -113,7 +113,7 @@ export default function Navbar({
             <button
               key={item.id}
               onClick={() => handleTabClick(item)}
-              title={isLockedForRole ? "Requires Admin PIN (Milindu)" : undefined}
+              title={isLockedForRole ? "Requires Admin Access" : undefined}
               className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 isActive
                   ? "bg-amber-500 text-neutral-950 font-semibold shadow-md shadow-amber-500/20"

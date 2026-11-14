@@ -247,15 +247,6 @@ export default function PinModal({
             Del
           </button>
         </div>
-
-        {/* Fast dev test hint */}
-        <div className="mt-5 text-center">
-          <p className="text-[11px] text-neutral-500">
-            PINs: <span className="text-amber-400 font-mono">1111</span> (Admin: Milindu),{" "}
-            <span className="text-amber-400 font-mono">3333</span> (Barista),{" "}
-            <span className="text-amber-400 font-mono">4444</span> (Cashier)
-          </p>
-        </div>
       </div>
     </div>
   );
