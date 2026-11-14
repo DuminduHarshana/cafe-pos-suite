@@ -43,10 +43,15 @@ export default function MenuManager({
   modifierGroups,
   onRefresh,
 }: MenuManagerProps) {
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories);
   const [selectedCat, setSelectedCat] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<string>("");
+
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
 
   // Manage Categories Modal
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
@@ -104,9 +109,9 @@ export default function MenuManager({
     }
   }, [categories, categoryId]);
 
-  // Flatten items
+  // Flatten items from local reactive state
   const allItems: MenuItem[] = [];
-  categories.forEach((cat) => {
+  localCategories.forEach((cat) => {
     cat.items?.forEach((item) => {
       allItems.push({ ...item, category: { id: cat.id, name: cat.name } });
     });
@@ -120,13 +125,23 @@ export default function MenuManager({
     return matchesCat && matchesSearch;
   });
 
-  // Toggle 86 / Out of stock
+  // Toggle 86 / Out of stock with instant optimistic UI update
   const handleToggleAvailability = async (item: MenuItem) => {
     playSound("tap");
+    // Instant UI update
+    setLocalCategories((prev) =>
+      prev.map((cat) => ({
+        ...cat,
+        items: cat.items?.map((it) =>
+          it.id === item.id ? { ...it, isAvailable: !it.isAvailable } : it
+        ),
+      }))
+    );
     try {
       await fetch("/api/menu", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
         body: JSON.stringify({
           id: item.id,
           isAvailable: !item.isAvailable,
@@ -136,6 +151,7 @@ export default function MenuManager({
       onRefresh();
     } catch (err) {
       console.error(err);
+      onRefresh();
     }
   };
 
@@ -227,24 +243,37 @@ export default function MenuManager({
     }
   };
 
-  // Delete Menu Item
+  // Delete Menu Item with instant optimistic UI update
   const handleDeleteItem = async () => {
     if (!deletingItem) return;
+    const targetId = deletingItem.id;
     setIsDeletingItem(true);
     playSound("delete");
+
+    // Optimistically remove from local state immediately
+    setLocalCategories((prev) =>
+      prev.map((cat) => ({
+        ...cat,
+        items: cat.items?.filter((it) => it.id !== targetId),
+      }))
+    );
+    setDeletingItem(null);
+
     try {
-      const res = await fetch(`/api/menu?id=${deletingItem.id}`, {
+      const res = await fetch(`/api/menu?id=${targetId}`, {
         method: "DELETE",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to delete item");
       }
       playSound("success");
-      setDeletingItem(null);
       onRefresh();
     } catch (err: unknown) {
       console.error(err);
+      onRefresh();
       alert(err instanceof Error ? err.message : "Failed to delete item");
     } finally {
       setIsDeletingItem(false);
@@ -329,27 +358,35 @@ export default function MenuManager({
     }
   };
 
-  // Delete Category
+  // Delete Category with instant optimistic UI update
   const handleDeleteCategory = async () => {
     if (!deletingCategory) return;
+    const targetCatId = deletingCategory.id;
     setIsDeletingCat(true);
     playSound("delete");
+
+    // Optimistically remove category from local state immediately
+    setLocalCategories((prev) => prev.filter((cat) => cat.id !== targetCatId));
+    if (selectedCat === targetCatId) {
+      setSelectedCat("ALL");
+    }
+    setDeletingCategory(null);
+
     try {
-      const res = await fetch(`/api/categories?id=${deletingCategory.id}`, {
+      const res = await fetch(`/api/categories?id=${targetCatId}`, {
         method: "DELETE",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to delete category");
       }
       playSound("success");
-      if (selectedCat === deletingCategory.id) {
-        setSelectedCat("ALL");
-      }
-      setDeletingCategory(null);
       onRefresh();
     } catch (err: unknown) {
       console.error(err);
+      onRefresh();
       alert(err instanceof Error ? err.message : "Failed to delete category");
     } finally {
       setIsDeletingCat(false);

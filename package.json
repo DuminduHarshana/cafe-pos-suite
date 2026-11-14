@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cp prisma/schema.dev.sqlite.prisma prisma/schema.prisma && next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build && (cp -r public .next/standalone/ 2>/dev/null || true) && (cp -r .next/static .next/standalone/.next/ 2>/dev/null || true) && (mkdir -p .next/standalone/node_modules/.prisma/client && cp prisma/dev.db .next/standalone/node_modules/.prisma/client/dev.db 2>/dev/null || true)",
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "postinstall": "prisma generate",
     "start": "next start",

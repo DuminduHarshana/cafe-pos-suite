@@ -167,12 +167,37 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Missing item ID" }, { status: 400 });
     }
 
+    const existing = await prisma.inventoryItem.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: true, message: "Inventory item already removed" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    // Clean up recipes and transactions first so FK constraints never block deletion
+    await prisma.menuItemIngredient.deleteMany({
+      where: { inventoryItemId: id },
+    });
+    await prisma.inventoryTransaction.deleteMany({
+      where: { inventoryItemId: id },
+    });
+
     await prisma.inventoryItem.delete({
       where: { id },
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
+    return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+      return NextResponse.json(
+        { success: true, message: "Inventory item already removed" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
     console.error("Failed to delete inventory item:", error);
     return NextResponse.json({ error: "Failed to delete inventory item" }, { status: 500 });
   }

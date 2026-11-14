@@ -59,7 +59,10 @@ export default function Home() {
   // Load Menu Data
   const loadMenu = useCallback(async () => {
     try {
-      const res = await fetch("/api/menu");
+      const res = await fetch("/api/menu", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setCategories(data.categories || []);
@@ -73,7 +76,10 @@ export default function Home() {
   // Load Tables
   const loadTables = useCallback(async () => {
     try {
-      const res = await fetch("/api/tables");
+      const res = await fetch("/api/tables", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setTables(data || []);
@@ -86,7 +92,10 @@ export default function Home() {
   // Load Orders
   const loadOrders = useCallback(async () => {
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch("/api/orders", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setOrders(data || []);
@@ -99,7 +108,10 @@ export default function Home() {
   // Load Inventory
   const loadInventory = useCallback(async () => {
     try {
-      const res = await fetch("/api/inventory");
+      const res = await fetch("/api/inventory", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setInventory(data);
@@ -112,7 +124,10 @@ export default function Home() {
   // Load Analytics
   const loadAnalytics = useCallback(async () => {
     try {
-      const res = await fetch("/api/analytics");
+      const res = await fetch("/api/analytics", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setAnalytics(data);
@@ -125,7 +140,10 @@ export default function Home() {
   // Load Staff & Restore Session
   const loadStaff = useCallback(async () => {
     try {
-      const res = await fetch("/api/staff");
+      const res = await fetch("/api/staff", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setStaffList(data || []);
@@ -187,15 +205,20 @@ export default function Home() {
     init();
   }, [loadMenu, loadTables, loadOrders, loadInventory, loadAnalytics, loadStaff]);
 
-  // Real-time synchronization polling every 12s for active orders & tables (when tab is visible)
+  // Real-time synchronization polling every 10s for active orders & tables, and current view data (when tab is visible)
   useEffect(() => {
     const syncInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       loadOrders();
       loadTables();
-    }, 12000);
+      if (activeTab === "menu") {
+        loadMenu();
+      } else if (activeTab === "inventory") {
+        loadInventory();
+      }
+    }, 10000);
     return () => clearInterval(syncInterval);
-  }, [loadOrders, loadTables]);
+  }, [loadOrders, loadTables, loadMenu, loadInventory, activeTab]);
 
   // Lazy-load analytics when opening the Analytics tab to preserve serverless DB connections
   useEffect(() => {

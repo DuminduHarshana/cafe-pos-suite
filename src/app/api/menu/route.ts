@@ -41,7 +41,16 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ categories, modifierGroups });
+    return NextResponse.json(
+      { categories, modifierGroups },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error) {
     console.error("Failed to fetch menu:", error);
     return NextResponse.json({ error: "Failed to fetch menu" }, { status: 500 });
@@ -199,6 +208,18 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Menu item ID is required" }, { status: 400 });
     }
 
+    // Check if item exists first - if already gone, return success idempotently
+    const existing = await prisma.menuItem.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: true, message: "Menu item already removed" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     // Remove join relations first
     await prisma.itemModifierGroup.deleteMany({
       where: { menuItemId: id },
@@ -217,8 +238,17 @@ export async function DELETE(req: Request) {
       where: { id },
     });
 
-    return NextResponse.json({ success: true, message: "Menu item deleted successfully" });
-  } catch (error) {
+    return NextResponse.json(
+      { success: true, message: "Menu item deleted successfully" },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+      return NextResponse.json(
+        { success: true, message: "Menu item already removed" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
     console.error("Failed to delete menu item:", error);
     return NextResponse.json({ error: "Failed to delete menu item" }, { status: 500 });
   }

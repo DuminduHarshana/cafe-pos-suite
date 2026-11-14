@@ -19,7 +19,13 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(categories);
+    return NextResponse.json(categories, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    });
   } catch (error) {
     console.error("Failed to fetch categories:", error);
     return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 });
@@ -126,6 +132,17 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Category ID is required" }, { status: 400 });
     }
 
+    const existing = await prisma.category.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: true, message: "Category already deleted" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     // Find a fallback category to reassign any child items
     let fallbackCat = await prisma.category.findFirst({
       where: { id: { not: id }, isActive: true },
@@ -137,7 +154,7 @@ export async function DELETE(req: Request) {
       fallbackCat = await prisma.category.create({
         data: {
           name: "General Items",
-          slug: "general-items",
+          slug: "general-items-" + Date.now(),
           icon: "Coffee",
           sortOrder: 1,
           isActive: true,
@@ -156,11 +173,20 @@ export async function DELETE(req: Request) {
       where: { id },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: `Category removed. Items reassigned to "${fallbackCat.name}".`,
-    });
-  } catch (error) {
+    return NextResponse.json(
+      {
+        success: true,
+        message: `Category removed. Items reassigned to "${fallbackCat.name}".`,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+      return NextResponse.json(
+        { success: true, message: "Category already deleted" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
     console.error("Failed to delete category:", error);
     return NextResponse.json({ error: "Failed to delete category" }, { status: 500 });
   }
