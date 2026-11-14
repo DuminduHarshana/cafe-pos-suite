@@ -160,3 +160,4 @@ describe("Service Charge & Checkout Calculations", () => {
     assert.equal(at15Percent.serviceChargeAmount, 1500);
   });
 });
+
