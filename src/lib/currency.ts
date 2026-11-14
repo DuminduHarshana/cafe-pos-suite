@@ -18,3 +18,4 @@ export function formatCurrencyShort(amount: number | string | undefined | null):
     maximumFractionDigits: 2,
   })}`;
 }
+
