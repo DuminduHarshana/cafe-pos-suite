@@ -117,25 +117,63 @@ export async function POST(req: Request) {
   }
 }
 
-// PUT /api/menu - Update a menu item (pricing, name, etc.)
+// PUT /api/menu - Full update of a menu item
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, description, price, costPrice, categoryId, prepTimeMinutes, isAvailable } = body;
+    const {
+      id,
+      name,
+      description,
+      price,
+      costPrice,
+      categoryId,
+      image,
+      prepTimeMinutes,
+      isAvailable,
+      modifierGroupIds,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
+    }
+
+    // If modifierGroupIds provided, update relations
+    if (Array.isArray(modifierGroupIds)) {
+      await prisma.itemModifierGroup.deleteMany({
+        where: { menuItemId: id },
+      });
+      if (modifierGroupIds.length > 0) {
+        await prisma.itemModifierGroup.createMany({
+          data: modifierGroupIds.map((groupId: string) => ({
+            menuItemId: id,
+            modifierGroupId: groupId,
+          })),
+        });
+      }
+    }
 
     const updated = await prisma.menuItem.update({
       where: { id },
       data: {
-        name,
-        description: description || null,
-        price: parseFloat(price),
-        costPrice: parseFloat(costPrice),
+        name: name ? String(name).trim() : undefined,
+        description: description !== undefined ? (description ? String(description).trim() : null) : undefined,
+        price: price !== undefined ? parseFloat(price) : undefined,
+        costPrice: costPrice !== undefined ? parseFloat(costPrice) : undefined,
         categoryId: categoryId || undefined,
-        prepTimeMinutes: parseInt(prepTimeMinutes),
-        isAvailable,
+        image: image !== undefined ? (image ? String(image).trim() : null) : undefined,
+        prepTimeMinutes: prepTimeMinutes !== undefined ? parseInt(prepTimeMinutes) : undefined,
+        isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
       },
       include: {
         category: true,
+        modifierGroups: {
+          include: {
+            modifierGroup: {
+              include: { options: true },
+            },
+          },
+        },
       },
     });
 
@@ -143,6 +181,46 @@ export async function PUT(req: Request) {
   } catch (error) {
     console.error("Failed to update menu item:", error);
     return NextResponse.json({ error: "Failed to update menu item" }, { status: 500 });
+  }
+}
+
+// DELETE /api/menu - Delete a menu item permanently
+export async function DELETE(req: Request) {
+  try {
+    const url = new URL(req.url);
+    let id = url.searchParams.get("id");
+
+    if (!id) {
+      const body = await req.json().catch(() => ({}));
+      id = body.id;
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "Menu item ID is required" }, { status: 400 });
+    }
+
+    // Remove join relations first
+    await prisma.itemModifierGroup.deleteMany({
+      where: { menuItemId: id },
+    });
+    await prisma.menuItemIngredient.deleteMany({
+      where: { menuItemId: id },
+    });
+
+    // Remove any historical order item references so delete never fails with FK constraint
+    await prisma.orderItem.deleteMany({
+      where: { menuItemId: id },
+    });
+
+    // Delete menu item
+    await prisma.menuItem.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true, message: "Menu item deleted successfully" });
+  } catch (error) {
+    console.error("Failed to delete menu item:", error);
+    return NextResponse.json({ error: "Failed to delete menu item" }, { status: 500 });
   }
 }
 

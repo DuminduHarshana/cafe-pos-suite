@@ -13,13 +13,15 @@ import {
   Wifi,
   Printer,
   Shield,
+  Sliders,
 } from "lucide-react";
-import { Staff } from "@/types";
+import { Staff, StoreSettings } from "@/types";
 import { playSound } from "@/lib/sound";
+import { DEFAULT_STORE_SETTINGS, getStoreSettings, subscribeStoreSettings } from "@/lib/storeSettings";
 
 interface NavbarProps {
-  activeTab: "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics";
-  setActiveTab: (tab: "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics") => void;
+  activeTab: "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics" | "settings";
+  setActiveTab: (tab: "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics" | "settings") => void;
   currentStaff: Staff;
   onOpenPinModal: () => void;
   onLockStation?: () => void;
@@ -37,6 +39,13 @@ export default function Navbar({
   onOpenPrinterModal,
 }: NavbarProps) {
   const [time, setTime] = useState<string>("");
+  const [store, setStore] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+
+  useEffect(() => {
+    setStore(getStoreSettings());
+    const unsub = subscribeStoreSettings((s) => setStore(s));
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -67,6 +76,7 @@ export default function Navbar({
     { id: "inventory" as const, label: "Inventory", icon: Boxes, adminOnly: true },
     { id: "menu" as const, label: "Menu & Prices", icon: FileSpreadsheet, adminOnly: true },
     { id: "analytics" as const, label: "Analytics", icon: BarChart3, adminOnly: true },
+    { id: "settings" as const, label: "Settings", icon: Sliders, adminOnly: true },
   ];
 
   const handleTabClick = (item: typeof navItems[number]) => {
@@ -83,22 +93,24 @@ export default function Navbar({
     <header className="h-16 bg-[#121215] border-b border-neutral-800/80 px-4 flex items-center justify-between select-none shrink-0 z-30">
       {/* Brand logo & Cafe name */}
       <div className="flex items-center space-x-3">
-        <img
-          src="/logo.png"
-          alt="Lilly's Restaurant & Cafe"
-          className="w-10 h-10 rounded-full object-cover border border-amber-500/40 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/20"
-        />
+        {store.logoUrl ? (
+          <img
+            src={store.logoUrl}
+            alt={store.storeName}
+            className="w-10 h-10 rounded-full object-cover border border-amber-500/40 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/20"
+          />
+        ) : null}
         <div>
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-base tracking-wide bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent">
-              LILLY&apos;S RESTAURANT &amp; CAFE
+            <span className="font-bold text-base tracking-wide bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent uppercase">
+              {store.storeName || "LILLY'S RESTAURANT & CAFE"}
             </span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
               PRO POS
             </span>
           </div>
-          <p className="text-[11px] text-neutral-400 hidden sm:block">
-            Connected &bull; Local Station #1
+          <p className="text-[11px] text-neutral-400 hidden sm:block truncate max-w-[280px]">
+            {store.address} &bull; {store.phone}
           </p>
         </div>
       </div>

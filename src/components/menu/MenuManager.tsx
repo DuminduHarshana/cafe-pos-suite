@@ -15,6 +15,9 @@ import {
   Cake,
   Utensils,
   Sparkles,
+  Trash2,
+  Layers,
+  AlertTriangle,
 } from "lucide-react";
 import { Category, MenuItem, ModifierGroup } from "@/types";
 import { playSound } from "@/lib/sound";
@@ -45,11 +48,25 @@ export default function MenuManager({
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<string>("");
 
+  // Manage Categories Modal
+  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+
   // New Category Modal
   const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatIcon, setNewCatIcon] = useState("Coffee");
   const [isCatSubmitting, setIsCatSubmitting] = useState(false);
+
+  // Edit Category Modal
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editCatName, setEditCatName] = useState("");
+  const [editCatIcon, setEditCatIcon] = useState("Coffee");
+  const [editCatOrder, setEditCatOrder] = useState("1");
+  const [isEditCatSubmitting, setIsEditCatSubmitting] = useState(false);
+
+  // Delete Category Confirmation Modal
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+  const [isDeletingCat, setIsDeletingCat] = useState(false);
 
   // New Item Modal
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
@@ -64,6 +81,22 @@ export default function MenuManager({
   const [image, setImage] = useState("");
   const [selectedModGroups, setSelectedModGroups] = useState<string[]>([]);
   const [isItemSubmitting, setIsItemSubmitting] = useState(false);
+
+  // Edit Item Modal
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editCostPrice, setEditCostPrice] = useState("");
+  const [editPrepTime, setEditPrepTime] = useState("4");
+  const [editImage, setEditImage] = useState("");
+  const [editSelectedModGroups, setEditSelectedModGroups] = useState<string[]>([]);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+
+  // Delete Item Confirmation Modal
+  const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
 
   useEffect(() => {
     if (!categoryId && categories.length > 0) {
@@ -138,6 +171,86 @@ export default function MenuManager({
     }
   };
 
+  // Open Full Edit Item Modal
+  const handleOpenEditItem = (item: MenuItem) => {
+    playSound("tap");
+    setEditingItem(item);
+    setEditName(item.name);
+    setEditDesc(item.description || "");
+    setEditCategoryId(item.categoryId);
+    setEditPrice(item.price.toString());
+    setEditCostPrice(item.costPrice.toString());
+    setEditPrepTime(item.prepTimeMinutes.toString());
+    setEditImage(item.image || "");
+    const attachedGroupIds =
+      item.modifierGroups?.map((mg) => mg.modifierGroup?.id).filter(Boolean) || [];
+    setEditSelectedModGroups(attachedGroupIds);
+  };
+
+  // Submit Edit Item
+  const handleUpdateItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem || !editName.trim() || !editPrice) return;
+
+    setIsEditSubmitting(true);
+    playSound("tap");
+    try {
+      const res = await fetch("/api/menu", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingItem.id,
+          name: editName.trim(),
+          description: editDesc.trim() || null,
+          categoryId: editCategoryId,
+          price: parseFloat(editPrice),
+          costPrice: parseFloat(editCostPrice) || 0,
+          prepTimeMinutes: parseInt(editPrepTime) || 5,
+          image: editImage.trim() || null,
+          modifierGroupIds: editSelectedModGroups,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update menu item");
+      }
+
+      playSound("success");
+      setEditingItem(null);
+      onRefresh();
+    } catch (err: unknown) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to update item");
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  };
+
+  // Delete Menu Item
+  const handleDeleteItem = async () => {
+    if (!deletingItem) return;
+    setIsDeletingItem(true);
+    playSound("delete");
+    try {
+      const res = await fetch(`/api/menu?id=${deletingItem.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete item");
+      }
+      playSound("success");
+      setDeletingItem(null);
+      onRefresh();
+    } catch (err: unknown) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to delete item");
+    } finally {
+      setIsDeletingItem(false);
+    }
+  };
+
   // Create new Category
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +285,77 @@ export default function MenuManager({
     }
   };
 
+  // Open Edit Category
+  const handleOpenEditCategory = (cat: Category) => {
+    playSound("tap");
+    setEditingCategory(cat);
+    setEditCatName(cat.name);
+    setEditCatIcon(cat.icon || "Coffee");
+    setEditCatOrder(cat.sortOrder?.toString() || "1");
+  };
+
+  // Submit Edit Category
+  const handleUpdateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editCatName.trim()) return;
+
+    setIsEditCatSubmitting(true);
+    playSound("tap");
+    try {
+      const res = await fetch("/api/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingCategory.id,
+          name: editCatName.trim(),
+          icon: editCatIcon,
+          sortOrder: parseInt(editCatOrder) || 1,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update category");
+      }
+
+      playSound("success");
+      setEditingCategory(null);
+      onRefresh();
+    } catch (err: unknown) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to update category");
+    } finally {
+      setIsEditCatSubmitting(false);
+    }
+  };
+
+  // Delete Category
+  const handleDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    setIsDeletingCat(true);
+    playSound("delete");
+    try {
+      const res = await fetch(`/api/categories?id=${deletingCategory.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete category");
+      }
+      playSound("success");
+      if (selectedCat === deletingCategory.id) {
+        setSelectedCat("ALL");
+      }
+      setDeletingCategory(null);
+      onRefresh();
+    } catch (err: unknown) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to delete category");
+    } finally {
+      setIsDeletingCat(false);
+    }
+  };
+
   // Create new item
   const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +366,6 @@ export default function MenuManager({
     try {
       let targetCatId = categoryId;
 
-      // If user chose to create an inline category
       if (isInlineNewCat && inlineCatName.trim()) {
         const catRes = await fetch("/api/categories", {
           method: "POST",
@@ -258,6 +441,19 @@ export default function MenuManager({
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Manage Categories button */}
+          <button
+            onClick={() => {
+              playSound("tap");
+              setIsManageCategoriesOpen(true);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800 text-neutral-300 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95"
+            title="Edit, re-order, or delete categories"
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-400" />
+            <span>Manage Categories</span>
+          </button>
+
           <button
             onClick={() => {
               playSound("tap");
@@ -289,7 +485,7 @@ export default function MenuManager({
       <div className="flex-1 p-6 overflow-y-auto space-y-6">
         {/* Category & Search filter */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#121215] p-3 rounded-2xl border border-neutral-800">
-          <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-0.5">
             <button
               onClick={() => {
                 playSound("tap");
@@ -303,25 +499,55 @@ export default function MenuManager({
             >
               All Items ({allItems.length})
             </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  playSound("tap");
-                  setSelectedCat(cat.id);
-                }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
-                  selectedCat === cat.id
-                    ? "bg-amber-500 text-neutral-950 font-bold shadow-sm shadow-amber-500/20"
-                    : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-neutral-200"
-                }`}
-              >
-                {cat.name} ({cat.items?.length || 0})
-              </button>
-            ))}
+            {categories.map((cat) => {
+              const isSelected = selectedCat === cat.id;
+              return (
+                <div key={cat.id} className="relative flex items-center group">
+                  <button
+                    onClick={() => {
+                      playSound("tap");
+                      setSelectedCat(cat.id);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+                      isSelected
+                        ? "bg-amber-500 text-neutral-950 font-bold shadow-sm shadow-amber-500/20"
+                        : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    {cat.name} ({cat.items?.length || 0})
+                  </button>
+
+                  {/* Inline Category Quick Actions */}
+                  {isSelected && (
+                    <div className="ml-1 flex items-center space-x-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditCategory(cat);
+                        }}
+                        className="p-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+                        title={`Edit category ${cat.name}`}
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingCategory(cat);
+                        }}
+                        className="p-1 rounded-lg bg-neutral-800 hover:bg-rose-500/30 text-rose-400"
+                        title={`Delete category ${cat.name}`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-64 shrink-0">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               type="text"
@@ -457,14 +683,25 @@ export default function MenuManager({
                       </td>
 
                       <td className="py-3 px-4">
-                        <span className="text-xs text-neutral-400">
-                          {item.modifierGroups?.length || 0} group(s)
-                        </span>
+                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                          {item.modifierGroups && item.modifierGroups.length > 0 ? (
+                            item.modifierGroups.map((mg, idx) => (
+                              <span
+                                key={idx}
+                                className="text-[9px] px-1.5 py-0.5 rounded-md bg-neutral-800 text-neutral-300 border border-neutral-700/60"
+                              >
+                                {mg.modifierGroup?.name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[10px] text-neutral-500 italic">None</span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                             item.isAvailable
                               ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                               : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
@@ -475,16 +712,37 @@ export default function MenuManager({
                       </td>
 
                       <td className="py-3 px-5 text-right">
-                        <button
-                          onClick={() => handleToggleAvailability(item)}
-                          className={`px-3 py-1 rounded-xl text-xs font-semibold transition ${
-                            item.isAvailable
-                              ? "bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 text-neutral-300"
-                              : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-neutral-950"
-                          }`}
-                        >
-                          {item.isAvailable ? "Mark 86'd" : "Restock Item"}
-                        </button>
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {/* 86 Toggle */}
+                          <button
+                            onClick={() => handleToggleAvailability(item)}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
+                              item.isAvailable
+                                ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+                                : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-neutral-950"
+                            }`}
+                          >
+                            {item.isAvailable ? "86'd" : "Restock"}
+                          </button>
+
+                          {/* Edit Full Item */}
+                          <button
+                            onClick={() => handleOpenEditItem(item)}
+                            className="p-1.5 rounded-xl bg-neutral-800 hover:bg-amber-500 hover:text-neutral-950 text-neutral-300 transition"
+                            title="Edit Item Details"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Delete Item */}
+                          <button
+                            onClick={() => setDeletingItem(item)}
+                            className="p-1.5 rounded-xl bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 text-neutral-400 transition"
+                            title="Delete Item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -495,7 +753,435 @@ export default function MenuManager({
         </div>
       </div>
 
-      {/* New Category Modal */}
+      {/* MODAL: Edit Menu Item */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setEditingItem(null)}
+              className="absolute right-5 top-5 p-2 rounded-full text-neutral-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2.5 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <Edit2 className="w-4 h-4" />
+              </div>
+              <h3 className="text-lg font-bold text-neutral-100">Edit Menu Item</h3>
+            </div>
+            <p className="text-xs text-neutral-400 mb-5">
+              Update name, pricing, prep times, category, or customization modifiers.
+            </p>
+
+            <form onSubmit={handleUpdateItem} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Dish / Drink Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={editCategoryId}
+                    onChange={(e) => setEditCategoryId(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Selling Price (LKR) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Cost Price / COGS (LKR)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editCostPrice}
+                    onChange={(e) => setEditCostPrice(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Kitchen Prep Time (mins)
+                  </label>
+                  <input
+                    type="number"
+                    value={editPrepTime}
+                    onChange={(e) => setEditPrepTime(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Image URL
+                </label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="url"
+                    value={editImage}
+                    onChange={(e) => setEditImage(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500"
+                  />
+                  {editImage && (
+                    <img
+                      src={editImage}
+                      alt="Preview"
+                      className="w-8 h-8 rounded-lg object-cover border border-neutral-700"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Modifier Groups checkboxes */}
+              {modifierGroups.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-2">
+                    Attach Customization Groups
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800">
+                    {modifierGroups.map((group) => {
+                      const isChecked = editSelectedModGroups.includes(group.id);
+                      return (
+                        <label
+                          key={group.id}
+                          className="flex items-center space-x-2 text-xs text-neutral-300 cursor-pointer select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditSelectedModGroups([...editSelectedModGroups, group.id]);
+                              } else {
+                                setEditSelectedModGroups(
+                                  editSelectedModGroups.filter((id) => id !== group.id)
+                                );
+                              }
+                            }}
+                            className="rounded bg-neutral-800 border-neutral-700 text-amber-500 focus:ring-0"
+                          />
+                          <span className="truncate">{group.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditSubmitting}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition"
+                >
+                  {isEditSubmitting ? "Updating..." : "Update Menu Item"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Delete Item Confirmation */}
+      {deletingItem && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-neutral-100">Delete Menu Item?</h3>
+            <p className="text-xs text-neutral-400 mt-2 mb-6">
+              Are you sure you want to remove <span className="font-bold text-white">&quot;{deletingItem.name}&quot;</span> from the menu? This action cannot be undone.
+            </p>
+            <div className="flex justify-center space-x-3">
+              <button
+                type="button"
+                onClick={() => setDeletingItem(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteItem}
+                disabled={isDeletingItem}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-sm active:scale-95"
+              >
+                {isDeletingItem ? "Deleting..." : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Manage Categories */}
+      {isManageCategoriesOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+            <button
+              onClick={() => setIsManageCategoriesOpen(false)}
+              className="absolute right-5 top-5 p-2 rounded-full text-neutral-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2.5 mb-1 shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <Layers className="w-4 h-4" />
+              </div>
+              <h3 className="text-lg font-bold text-neutral-100">Manage Categories</h3>
+            </div>
+            <p className="text-xs text-neutral-400 mb-4 shrink-0">
+              Edit category names, change ordering, or remove unused categories.
+            </p>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {categories.map((cat) => (
+                <div
+                  key={cat.id}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-xl bg-neutral-800 text-amber-400 flex items-center justify-center font-bold text-xs">
+                      {cat.name[0]}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-xs text-neutral-200 block">
+                        {cat.name}
+                      </span>
+                      <span className="text-[10px] text-neutral-500">
+                        {cat.items?.length || 0} items assigned &bull; Order #{cat.sortOrder}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleOpenEditCategory(cat)}
+                      className="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center space-x-1"
+                    >
+                      <Edit2 className="w-3 h-3 text-amber-400" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => setDeletingCategory(cat)}
+                      className="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold flex items-center space-x-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 mt-3 border-t border-neutral-800 flex justify-between items-center shrink-0">
+              <button
+                onClick={() => {
+                  setIsManageCategoriesOpen(false);
+                  setIsNewCategoryOpen(true);
+                }}
+                className="px-3.5 py-2 rounded-xl bg-neutral-900 border border-amber-500/40 text-amber-400 text-xs font-semibold flex items-center space-x-1.5 hover:bg-amber-500/10"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Another Category</span>
+              </button>
+              <button
+                onClick={() => setIsManageCategoriesOpen(false)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Edit Category */}
+      {editingCategory && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+            <button
+              onClick={() => setEditingCategory(null)}
+              className="absolute right-5 top-5 p-2 rounded-full text-neutral-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2.5 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <Edit2 className="w-4 h-4" />
+              </div>
+              <h3 className="text-lg font-bold text-neutral-100">Edit Category</h3>
+            </div>
+            <p className="text-xs text-neutral-400 mb-5">
+              Change the name, icon, and display sequence for this category.
+            </p>
+
+            <form onSubmit={handleUpdateCategory} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editCatName}
+                  onChange={(e) => setEditCatName(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Display Icon
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {CATEGORY_ICONS.map((item) => {
+                    const Icon = item.icon;
+                    const isSelected = editCatIcon === item.name;
+                    return (
+                      <button
+                        type="button"
+                        key={item.name}
+                        onClick={() => setEditCatIcon(item.name)}
+                        className={`p-2.5 rounded-xl border flex items-center justify-center transition ${
+                          isSelected
+                            ? "bg-amber-500/20 border-amber-500 text-amber-400"
+                            : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Sort Order Number
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editCatOrder}
+                  onChange={(e) => setEditCatOrder(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(null)}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditCatSubmitting}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition"
+                >
+                  {isEditCatSubmitting ? "Saving..." : "Save Category"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Delete Category Confirmation */}
+      {deletingCategory && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-neutral-100">Delete Category?</h3>
+            <p className="text-xs text-neutral-400 mt-2 mb-6">
+              Are you sure you want to delete <span className="font-bold text-white">&quot;{deletingCategory.name}&quot;</span>? Any menu items in this category will be safely reassigned to another active category.
+            </p>
+            <div className="flex justify-center space-x-3">
+              <button
+                type="button"
+                onClick={() => setDeletingCategory(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCategory}
+                disabled={isDeletingCat}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-sm active:scale-95"
+              >
+                {isDeletingCat ? "Deleting..." : "Yes, Delete Category"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: New Category */}
       {isNewCategoryOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
@@ -524,15 +1210,15 @@ export default function MenuManager({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Signature Mocktails, Artisanal Pizzas, Desserts"
+                  placeholder="e.g. Specialty Desserts"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-2">
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
                   Category Icon
                 </label>
                 <div className="grid grid-cols-6 gap-2">
@@ -541,15 +1227,14 @@ export default function MenuManager({
                     const isSelected = newCatIcon === item.name;
                     return (
                       <button
-                        key={item.name}
                         type="button"
+                        key={item.name}
                         onClick={() => setNewCatIcon(item.name)}
-                        className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition ${
+                        className={`p-2.5 rounded-xl border flex items-center justify-center transition ${
                           isSelected
-                            ? "bg-amber-500/20 border-amber-500 text-amber-400 ring-1 ring-amber-500/50"
-                            : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                            ? "bg-amber-500/20 border-amber-500 text-amber-400"
+                            : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
                         }`}
-                        title={item.name}
                       >
                         <Icon className="w-4 h-4" />
                       </button>
@@ -569,9 +1254,9 @@ export default function MenuManager({
                 <button
                   type="submit"
                   disabled={isCatSubmitting}
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition"
                 >
-                  {isCatSubmitting ? "Creating..." : "Create Category"}
+                  {isCatSubmitting ? "Creating..." : "Save Category"}
                 </button>
               </div>
             </form>
@@ -579,10 +1264,10 @@ export default function MenuManager({
         </div>
       )}
 
-      {/* New Menu Item Modal */}
+      {/* MODAL: New Menu Item */}
       {isNewItemOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsNewItemOpen(false)}
               className="absolute right-5 top-5 p-2 rounded-full text-neutral-400 hover:text-white"
@@ -590,20 +1275,25 @@ export default function MenuManager({
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-lg font-bold text-neutral-100 mb-1">Add New Menu Item</h3>
+            <div className="flex items-center space-x-2.5 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <Plus className="w-4 h-4 stroke-[3]" />
+              </div>
+              <h3 className="text-lg font-bold text-neutral-100">Add New Menu Item</h3>
+            </div>
             <p className="text-xs text-neutral-400 mb-5">
-              Add a new dish, drink, or retail package to your POS catalog.
+              Create a new dish or drink with real-time POS catalog sync.
             </p>
 
             <form onSubmit={handleCreateItem} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Item Name *
+                  Dish / Drink Name *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Vanilla Cloud Cold Brew, Truffle Eggs Benedict"
+                  placeholder="e.g. Pistachio Matcha Latte"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
@@ -616,36 +1306,39 @@ export default function MenuManager({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Notes, ingredients, flavor profile..."
+                  placeholder="e.g. Ceremonial grade Uji matcha with roasted Sicilian pistachio cream."
                   value={desc}
                   onChange={(e) => setDesc(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 resize-none"
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Category *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-neutral-300">
+                      Category *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsInlineNewCat(!isInlineNewCat)}
+                      className="text-[11px] text-amber-400 hover:underline"
+                    >
+                      {isInlineNewCat ? "Choose Existing" : "+ New"}
+                    </button>
+                  </div>
+
                   {!isInlineNewCat ? (
                     <select
                       value={categoryId}
-                      onChange={(e) => {
-                        if (e.target.value === "__NEW__") {
-                          setIsInlineNewCat(true);
-                        } else {
-                          setCategoryId(e.target.value);
-                        }
-                      }}
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
+                      onChange={(e) => setCategoryId(e.target.value)}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
                     >
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
                         </option>
                       ))}
-                      <option value="__NEW__">+ Add New Category...</option>
                     </select>
                   ) : (
                     <div className="flex items-center space-x-1.5">
@@ -676,7 +1369,7 @@ export default function MenuManager({
                     type="number"
                     step="0.01"
                     required
-                    placeholder="e.g. 500"
+                    placeholder="e.g. 950"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 font-mono"
@@ -692,7 +1385,7 @@ export default function MenuManager({
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="e.g. 150"
+                    placeholder="e.g. 250"
                     value={costPrice}
                     onChange={(e) => setCostPrice(e.target.value)}
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 font-mono"

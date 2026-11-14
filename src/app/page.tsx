@@ -8,9 +8,11 @@ import TableManager from "@/components/tables/TableManager";
 import InventoryManager from "@/components/inventory/InventoryManager";
 import MenuManager from "@/components/menu/MenuManager";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
+import SettingsHub from "@/components/settings/SettingsHub";
 import PinModal from "@/components/staff/PinModal";
 import PrinterSettingsModal from "@/components/settings/PrinterSettingsModal";
 import { Category, ModifierGroup, Order, Table, InventoryItem, Staff } from "@/types";
+import { getStoreSettings, applyColorTheme } from "@/lib/storeSettings";
 
 const DEFAULT_STAFF: Staff = {
   id: "admin-milindu",
@@ -21,7 +23,7 @@ const DEFAULT_STAFF: Staff = {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<
-    "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics"
+    "pos" | "kds" | "tables" | "inventory" | "menu" | "analytics" | "settings"
   >("pos");
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -166,6 +168,10 @@ export default function Home() {
 
   // Initial Load
   useEffect(() => {
+    // Apply stored color theme
+    const store = getStoreSettings();
+    applyColorTheme(store.colorTheme);
+
     async function init() {
       setIsLoading(true);
       await Promise.all([
@@ -299,6 +305,10 @@ export default function Home() {
             analytics={analytics}
             onRefresh={refreshAll}
           />
+        )}
+
+        {activeTab === "settings" && (
+          <SettingsHub />
         )}
       </div>
 

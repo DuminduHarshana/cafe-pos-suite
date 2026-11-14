@@ -1,6 +1,8 @@
 // Universal ESC/POS Thermal Receipt Command Encoder
 // Compatible with Epson TM-T88/TM-m30, Star TSP100/mC-Print, Munbyn, Bixolon, Sunmi, Xprinter (80mm & 58mm)
 
+import { getStoreSettings } from "./storeSettings";
+
 export interface PrinterSettings {
   type: "network" | "usb" | "bluetooth" | "system";
   paperWidth: "80mm" | "58mm"; // 80mm = ~48 chars, 58mm = ~32 chars
@@ -187,15 +189,22 @@ export function generateThermalReceiptBytes(
     b.kickDrawer();
   }
 
+  const store = getStoreSettings();
+
   // Header
   b.alignCenter()
     .size("double")
     .bold(true)
-    .textLine("LILLY'S RESTAURANT & CAFE")
+    .textLine(store.storeName.toUpperCase())
     .size("normal")
-    .bold(false)
-    .textLine("No. 33, Galle Road, Balapitiya")
-    .textLine("Tel: 0777926230")
+    .bold(false);
+
+  if (store.tagline) {
+    b.textLine(store.tagline);
+  }
+
+  b.textLine(store.address)
+    .textLine(`Tel: ${store.phone}`)
     .feed(1)
     .bold(true)
     .textLine(`ORDER #${order.orderNumber}`)
@@ -262,8 +271,7 @@ export function generateThermalReceiptBytes(
     .alignCenter()
     .textLine(`PAID VIA ${order.paymentMethod ? order.paymentMethod.replace("_", " ") : "CARD"}`)
     .feed(1)
-    .textLine("Thank you for dining with us!")
-    .textLine("Please visit again soon.")
+    .textLine(store.receiptFooterNote || "Thank you for dining with us!")
     .feed(2)
     .cut();
 

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Printer, CheckCircle2, Loader2 } from "lucide-react";
-import { Order } from "@/types";
+import { Order, StoreSettings } from "@/types";
 import { playSound } from "@/lib/sound";
 import { printReceipt } from "@/lib/printer";
 import { formatCurrency } from "@/lib/currency";
+import { DEFAULT_STORE_SETTINGS, getStoreSettings, subscribeStoreSettings } from "@/lib/storeSettings";
 
 interface ReceiptModalProps {
   order: Order | null;
@@ -15,6 +16,13 @@ interface ReceiptModalProps {
 export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatus, setPrintStatus] = useState<string | null>(null);
+  const [store, setStore] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+
+  useEffect(() => {
+    setStore(getStoreSettings());
+    const unsub = subscribeStoreSettings((s) => setStore(s));
+    return unsub;
+  }, []);
 
   if (!order) return null;
 
@@ -67,18 +75,23 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
           >
             {/* Store Branding Header with Logo */}
             <div className="text-center space-y-1 mb-4 border-b border-neutral-300 pb-3">
-              <div className="flex justify-center mb-2">
-                <img
-                  src="/logo.png"
-                  alt="Lilly's Restaurant & Cafe Logo"
-                  className="w-16 h-16 rounded-full object-cover border border-neutral-300 shadow-sm"
-                />
-              </div>
+              {store.showLogoOnReceipt && store.logoUrl && (
+                <div className="flex justify-center mb-2">
+                  <img
+                    src={store.logoUrl}
+                    alt={store.storeName}
+                    className="w-16 h-16 rounded-full object-cover border border-neutral-300 shadow-sm"
+                  />
+                </div>
+              )}
               <h2 className="text-sm font-extrabold tracking-widest uppercase">
-                LILLY&apos;S RESTAURANT &amp; CAFE
+                {store.storeName || "LILLY'S RESTAURANT & CAFE"}
               </h2>
-              <p className="text-[10px] text-neutral-600">No. 33, Galle Road, Balapitiya</p>
-              <p className="text-[10px] text-neutral-600">Tel: 0777926230</p>
+              {store.tagline && (
+                <p className="text-[9px] text-neutral-600">{store.tagline}</p>
+              )}
+              <p className="text-[10px] text-neutral-600">{store.address}</p>
+              <p className="text-[10px] text-neutral-600">Tel: {store.phone}</p>
               <p className="text-[10px] text-neutral-500 font-bold mt-2">
                 ORDER #{order.orderNumber}
               </p>
@@ -94,7 +107,7 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
                 <span>Order Type:</span>
                 <span className="font-bold uppercase">{order.type.replace("_", " ")}</span>
               </div>
-              {order.table && (
+              {store.showTableOnReceipt && order.table && (
                 <div className="flex justify-between">
                   <span>Table:</span>
                   <span className="font-bold">{order.table.number} ({order.table.name})</span>
@@ -106,10 +119,12 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
                   <span>{order.customerName}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span>Cashier / Staff:</span>
-                <span>{order.staff?.name || "Server #1"}</span>
-              </div>
+              {store.showStaffOnReceipt && (
+                <div className="flex justify-between">
+                  <span>Cashier / Staff:</span>
+                  <span>{order.staff?.name || "Server #1"}</span>
+                </div>
+              )}
             </div>
 
             {/* Itemized list */}
@@ -189,7 +204,9 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
                   />
                 ))}
               </div>
-              <p className="text-[9px] text-neutral-500">Thank you for visiting! Have a lovely day.</p>
+              <p className="text-[9px] text-neutral-500 font-medium">
+                {store.receiptFooterNote || "Thank you for dining with Lilly's! Have a lovely day."}
+              </p>
             </div>
           </div>
         </div>

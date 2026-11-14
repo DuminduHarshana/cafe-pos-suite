@@ -135,3 +135,29 @@ export interface InventoryItem {
     createdAt: string;
   }[];
 }
+
+export type ColorTheme =
+  | "amber"
+  | "emerald"
+  | "blue"
+  | "rose"
+  | "purple"
+  | "orange"
+  | "cyan"
+  | "neutral";
+
+export interface StoreSettings {
+  storeName: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  logoUrl: string;
+  receiptHeaderNote?: string;
+  receiptFooterNote: string;
+  taxRatePercent: number; // e.g. 2.5
+  serviceChargePercent: number; // e.g. 10
+  colorTheme: ColorTheme;
+  showLogoOnReceipt: boolean;
+  showTableOnReceipt: boolean;
+  showStaffOnReceipt: boolean;
+}
