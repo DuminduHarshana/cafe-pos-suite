@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultTables } from "@/lib/autoSeed";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/tables - List tables with active orders
 export async function GET() {
   try {
+    await ensureDefaultTables();
+
     const tables = await prisma.restaurantTable.findMany({
       include: {
         orders: {

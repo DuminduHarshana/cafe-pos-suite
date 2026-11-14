@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultInventory } from "@/lib/autoSeed";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/inventory - Fetch raw materials and stock levels
 export async function GET() {
   try {
+    await ensureDefaultInventory();
+
     const items = await prisma.inventoryItem.findMany({
       include: {
         recipes: {
@@ -40,17 +43,90 @@ export async function GET() {
   }
 }
 
-// POST /api/inventory - Restock or manual inventory adjustment
+// POST /api/inventory - Create new inventory item OR restock existing item
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
+    // Case 1: CREATE NEW INVENTORY ITEM
+    if (body.action === "CREATE" || (!body.id && body.name)) {
+      const {
+        name,
+        sku,
+        category,
+        unit,
+        currentStock,
+        minStockAlert,
+        costPerUnit,
+        supplierName,
+        staffName,
+      } = body;
+
+      if (!name || String(name).trim() === "") {
+        return NextResponse.json({ error: "Item name is required" }, { status: 400 });
+      }
+
+      const cleanName = String(name).trim();
+      const rawCat = (category || "GENERAL").toString().toUpperCase().trim();
+      const catCode = rawCat.replace(/[^A-Z0-9]/g, "").slice(0, 4) || "GEN";
+      const cleanSku =
+        sku && String(sku).trim() !== ""
+          ? String(sku).trim()
+          : `INV-${catCode}-${Date.now().toString().slice(-4)}`;
+
+      // Check for SKU conflict
+      const existing = await prisma.inventoryItem.findUnique({
+        where: { sku: cleanSku },
+      });
+      const finalSku = existing ? `${cleanSku}-${Math.floor(Math.random() * 900 + 100)}` : cleanSku;
+
+      const initStock = parseFloat(currentStock) || 0.0;
+      const cost = parseFloat(costPerUnit) || 0.0;
+      const minAlert = parseFloat(minStockAlert) || 5.0;
+
+      const created = await prisma.$transaction(async (tx) => {
+        const item = await tx.inventoryItem.create({
+          data: {
+            name: cleanName,
+            sku: finalSku,
+            category: rawCat,
+            unit: unit ? String(unit).trim() : "units",
+            currentStock: initStock,
+            minStockAlert: minAlert,
+            costPerUnit: cost,
+            supplierName: supplierName ? String(supplierName).trim() : null,
+          },
+        });
+
+        if (initStock > 0) {
+          await tx.inventoryTransaction.create({
+            data: {
+              inventoryItemId: item.id,
+              type: "RESTOCK",
+              quantity: initStock,
+              reason: "Initial Opening Stock Count",
+              staffName: staffName || "Milindu",
+            },
+          });
+        }
+
+        return item;
+      });
+
+      return NextResponse.json(created, { status: 201 });
+    }
+
+    // Case 2: RESTOCK / ADJUST EXISTING INVENTORY ITEM
     const { id, quantity, type, reason, costPerUnit, staffName } = body;
+    if (!id) {
+      return NextResponse.json({ error: "Inventory item ID or valid creation payload required" }, { status: 400 });
+    }
 
     const qtyNumber = parseFloat(quantity) || 0;
 
     const result = await prisma.$transaction(async (tx) => {
       const current = await tx.inventoryItem.findUnique({ where: { id } });
-      if (!current) throw new Error("Item not found");
+      if (!current) throw new Error("Inventory item not found");
 
       const newStock = type === "RESTOCK" ? current.currentStock + qtyNumber : current.currentStock + qtyNumber;
 
@@ -67,8 +143,8 @@ export async function POST(req: Request) {
           inventoryItemId: id,
           type: type || "RESTOCK",
           quantity: qtyNumber,
-          reason: reason || (type === "RESTOCK" ? "Purchase Order Restock" : "Manual Adjustment"),
-          staffName: staffName || "Admin",
+          reason: reason || (type === "RESTOCK" ? "Purchase Order Restock" : "Manual Stock Adjustment"),
+          staffName: staffName || "Milindu",
         },
       });
 
@@ -77,7 +153,27 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Failed to update inventory:", error);
-    return NextResponse.json({ error: "Failed to update inventory" }, { status: 500 });
+    console.error("Failed to process inventory update/create:", error);
+    return NextResponse.json({ error: "Failed to process inventory request" }, { status: 500 });
+  }
+}
+
+// DELETE /api/inventory - Remove an inventory item
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "Missing item ID" }, { status: 400 });
+    }
+
+    await prisma.inventoryItem.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete inventory item:", error);
+    return NextResponse.json({ error: "Failed to delete inventory item" }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileSpreadsheet,
   Plus,
@@ -8,12 +8,13 @@ import {
   Check,
   X,
   Search,
-  DollarSign,
-  Clock,
+  FolderPlus,
+  Coffee,
+  Flame,
+  Leaf,
+  Cake,
+  Utensils,
   Sparkles,
-  ToggleLeft,
-  ToggleRight,
-  TrendingUp,
 } from "lucide-react";
 import { Category, MenuItem, ModifierGroup } from "@/types";
 import { playSound } from "@/lib/sound";
@@ -23,6 +24,15 @@ interface MenuManagerProps {
   modifierGroups: ModifierGroup[];
   onRefresh: () => void;
 }
+
+const CATEGORY_ICONS = [
+  { name: "Coffee", icon: Coffee },
+  { name: "Flame", icon: Flame },
+  { name: "Leaf", icon: Leaf },
+  { name: "Cake", icon: Cake },
+  { name: "Utensils", icon: Utensils },
+  { name: "Sparkles", icon: Sparkles },
+];
 
 export default function MenuManager({
   categories,
@@ -34,16 +44,31 @@ export default function MenuManager({
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<string>("");
 
+  // New Category Modal
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatIcon, setNewCatIcon] = useState("Coffee");
+  const [isCatSubmitting, setIsCatSubmitting] = useState(false);
+
   // New Item Modal
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
+  const [isInlineNewCat, setIsInlineNewCat] = useState(false);
+  const [inlineCatName, setInlineCatName] = useState("");
   const [price, setPrice] = useState("");
   const [costPrice, setCostPrice] = useState("");
   const [prepTime, setPrepTime] = useState("4");
   const [image, setImage] = useState("");
   const [selectedModGroups, setSelectedModGroups] = useState<string[]>([]);
+  const [isItemSubmitting, setIsItemSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!categoryId && categories.length > 0) {
+      setCategoryId(categories[0].id);
+    }
+  }, [categories, categoryId]);
 
   // Flatten items
   const allItems: MenuItem[] = [];
@@ -68,20 +93,24 @@ export default function MenuManager({
       await fetch("/api/menu", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: item.id, isAvailable: !item.isAvailable }),
+        body: JSON.stringify({
+          id: item.id,
+          isAvailable: !item.isAvailable,
+        }),
       });
+      playSound("success");
       onRefresh();
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Save quick price update
+  // Inline Price Edit Save
   const handleSavePrice = async (itemId: string) => {
-    playSound("tap");
     const numPrice = parseFloat(tempPrice);
-    if (isNaN(numPrice) || numPrice <= 0) return;
+    if (isNaN(numPrice) || numPrice < 0) return;
 
+    playSound("tap");
     try {
       const current = allItems.find((i) => i.id === itemId);
       if (!current) return;
@@ -108,20 +137,77 @@ export default function MenuManager({
     }
   };
 
+  // Create new Category
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+
+    setIsCatSubmitting(true);
+    playSound("tap");
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newCatName.trim(),
+          icon: newCatIcon,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create category");
+      }
+
+      playSound("success");
+      setIsNewCategoryOpen(false);
+      setNewCatName("");
+      onRefresh();
+    } catch (err: unknown) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to create category");
+    } finally {
+      setIsCatSubmitting(false);
+    }
+  };
+
   // Create new item
   const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !price) return;
 
+    setIsItemSubmitting(true);
     playSound("tap");
     try {
-      await fetch("/api/menu", {
+      let targetCatId = categoryId;
+
+      // If user chose to create an inline category
+      if (isInlineNewCat && inlineCatName.trim()) {
+        const catRes = await fetch("/api/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: inlineCatName.trim(),
+            icon: "Coffee",
+          }),
+        });
+        if (catRes.ok) {
+          const newCat = await catRes.json();
+          targetCatId = newCat.id;
+        }
+      }
+
+      if (!targetCatId) {
+        targetCatId = (selectedCat !== "ALL" ? selectedCat : "") || categories[0]?.id;
+      }
+
+      const res = await fetch("/api/menu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           description: desc.trim() || undefined,
-          categoryId: categoryId || categories[0]?.id,
+          categoryId: targetCatId,
           price: parseFloat(price),
           costPrice: costPrice ? parseFloat(costPrice) : 0,
           prepTimeMinutes: parseInt(prepTime) || 5,
@@ -129,6 +215,12 @@ export default function MenuManager({
           modifierGroupIds: selectedModGroups,
         }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to create menu item");
+      }
+
       playSound("success");
       setIsNewItemOpen(false);
       setName("");
@@ -136,11 +228,15 @@ export default function MenuManager({
       setPrice("");
       setCostPrice("");
       setImage("");
+      setIsInlineNewCat(false);
+      setInlineCatName("");
       setSelectedModGroups([]);
       onRefresh();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      alert("Failed to create menu item");
+      alert(err instanceof Error ? err.message : "Failed to create menu item");
+    } finally {
+      setIsItemSubmitting(false);
     }
   };
 
@@ -160,16 +256,32 @@ export default function MenuManager({
           </h2>
         </div>
 
-        <button
-          onClick={() => {
-            playSound("tap");
-            setIsNewItemOpen(true);
-          }}
-          className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center space-x-1.5 transition shadow-sm active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>New Menu Item</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              playSound("tap");
+              setIsNewCategoryOpen(true);
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-amber-500/40 hover:bg-neutral-800 text-neutral-200 font-semibold text-xs flex items-center space-x-1.5 transition active:scale-95"
+          >
+            <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
+            <span>New Category</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playSound("tap");
+              if (!categoryId && categories.length > 0) {
+                setCategoryId(selectedCat !== "ALL" ? selectedCat : categories[0].id);
+              }
+              setIsNewItemOpen(true);
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center space-x-1.5 transition shadow-sm active:scale-95"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>New Menu Item</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -184,11 +296,11 @@ export default function MenuManager({
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                 selectedCat === "ALL"
-                  ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
+                  ? "bg-amber-500 text-neutral-950 font-bold shadow-sm shadow-amber-500/20"
                   : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-neutral-200"
               }`}
             >
-              All Categories
+              All Items ({allItems.length})
             </button>
             {categories.map((cat) => (
               <button
@@ -199,11 +311,11 @@ export default function MenuManager({
                 }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                   selectedCat === cat.id
-                    ? "bg-amber-500 text-neutral-950 font-bold shadow-sm"
+                    ? "bg-amber-500 text-neutral-950 font-bold shadow-sm shadow-amber-500/20"
                     : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-neutral-200"
                 }`}
               >
-                {cat.name}
+                {cat.name} ({cat.items?.length || 0})
               </button>
             ))}
           </div>
@@ -214,7 +326,7 @@ export default function MenuManager({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search items or recipes..."
+              placeholder="Search dishes, drinks, ingredients..."
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-amber-500/50"
             />
           </div>
@@ -226,128 +338,151 @@ export default function MenuManager({
             <table className="w-full text-left text-xs">
               <thead className="bg-neutral-900/80 text-neutral-400 uppercase tracking-wider text-[10px] font-bold border-b border-neutral-800">
                 <tr>
-                  <th className="py-3.5 px-5">Item Name &amp; Photo</th>
+                  <th className="py-3.5 px-5">Dish / Drink</th>
                   <th className="py-3.5 px-4">Category</th>
-                  <th className="py-3.5 px-4">Menu Price ($)</th>
-                  <th className="py-3.5 px-4">Cost Price ($)</th>
-                  <th className="py-3.5 px-4">Profit Margin</th>
-                  <th className="py-3.5 px-4">Prep Time</th>
-                  <th className="py-3.5 px-5 text-right">86 / Available</th>
+                  <th className="py-3.5 px-4">Selling Price</th>
+                  <th className="py-3.5 px-4">Cost Price</th>
+                  <th className="py-3.5 px-4">Gross Margin</th>
+                  <th className="py-3.5 px-4">Modifiers</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/60">
                 {filteredItems.map((item) => {
-                  const isEditing = editingPriceId === item.id;
-                  const profit = item.price - item.costPrice;
-                  const marginPercent = item.price > 0 ? (profit / item.price) * 100 : 0;
+                  const margin =
+                    item.price > 0
+                      ? (((item.price - item.costPrice) / item.price) * 100).toFixed(1)
+                      : "0";
+                  const isEditingPrice = editingPriceId === item.id;
 
                   return (
                     <tr
                       key={item.id}
-                      className="hover:bg-neutral-800/40 transition group"
+                      className={`hover:bg-neutral-800/40 transition group ${
+                        !item.isAvailable ? "opacity-60 bg-neutral-900/20" : ""
+                      }`}
                     >
-                      <td className="py-3.5 px-5">
+                      <td className="py-3 px-5">
                         <div className="flex items-center space-x-3">
-                          <img
-                            src={
-                              item.image ||
-                              "https://images.unsplash.com/photo-1509785307050-d4066910ec1e?auto=format&fit=crop&w=150&q=80"
-                            }
-                            alt={item.name}
-                            className="w-10 h-10 rounded-xl object-cover ring-1 ring-neutral-700 shrink-0"
-                          />
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-10 h-10 rounded-xl object-cover ring-1 ring-neutral-700 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-neutral-800 text-amber-400 font-bold flex items-center justify-center shrink-0">
+                              {item.name[0]}
+                            </div>
+                          )}
                           <div>
                             <span className="font-bold text-neutral-100 text-xs block">
                               {item.name}
                             </span>
-                            <span className="text-[10px] text-neutral-500 line-clamp-1 max-w-xs">
-                              {item.description || "Craft item"}
-                            </span>
+                            {item.description && (
+                              <span className="text-[10px] text-neutral-400 line-clamp-1 max-w-[200px]">
+                                {item.description}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                      <td className="py-3 px-4">
+                        <span className="text-xs text-neutral-300 font-medium">
                           {item.category?.name || "General"}
                         </span>
                       </td>
 
-                      {/* Interactive inline price edit */}
-                      <td className="py-3.5 px-4">
-                        {isEditing ? (
+                      <td className="py-3 px-4">
+                        {isEditingPrice ? (
                           <div className="flex items-center space-x-1.5">
-                            <span className="text-neutral-400 font-mono text-xs">$</span>
+                            <span className="text-xs text-neutral-400">$</span>
                             <input
                               type="number"
-                              step="0.05"
+                              step="0.01"
+                              autoFocus
                               value={tempPrice}
                               onChange={(e) => setTempPrice(e.target.value)}
-                              className="w-20 bg-neutral-900 border border-amber-500 rounded-lg px-2 py-1 font-mono font-bold text-xs text-amber-300 focus:outline-none"
-                              autoFocus
+                              className="w-20 bg-neutral-900 border border-amber-500 rounded-lg px-2 py-1 text-xs font-mono text-neutral-100 focus:outline-none"
                             />
                             <button
                               onClick={() => handleSavePrice(item.id)}
-                              className="p-1 rounded-md bg-emerald-500 text-neutral-950 hover:bg-emerald-400"
+                              className="p-1 rounded bg-amber-500 text-neutral-950 hover:bg-amber-400"
                             >
-                              <Check className="w-3 h-3 stroke-[3]" />
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
                             </button>
                             <button
                               onClick={() => setEditingPriceId(null)}
-                              className="p-1 rounded-md bg-neutral-800 text-neutral-400 hover:text-white"
+                              className="p-1 rounded bg-neutral-800 text-neutral-400 hover:text-white"
                             >
-                              <X className="w-3 h-3" />
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ) : (
-                          <button
+                          <div
                             onClick={() => {
-                              playSound("tap");
                               setEditingPriceId(item.id);
-                              setTempPrice(item.price.toFixed(2));
+                              setTempPrice(item.price.toString());
                             }}
-                            className="flex items-center space-x-1.5 font-mono font-bold text-sm text-neutral-100 hover:text-amber-400 group/btn transition"
-                            title="Click to edit price"
+                            className="flex items-center space-x-1.5 cursor-pointer group-hover:text-amber-400 transition"
+                            title="Click to quickly edit price"
                           >
-                            <span>${item.price.toFixed(2)}</span>
-                            <Edit2 className="w-3 h-3 text-neutral-500 opacity-0 group-hover/btn:opacity-100" />
-                          </button>
+                            <span className="font-mono font-bold text-neutral-100 text-sm">
+                              ${item.price.toFixed(2)}
+                            </span>
+                            <Edit2 className="w-3 h-3 text-neutral-500 opacity-0 group-hover:opacity-100 transition" />
+                          </div>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4 font-mono text-neutral-400">
+                      <td className="py-3 px-4 font-mono text-neutral-400">
                         ${item.costPrice.toFixed(2)}
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-4 font-mono">
                         <span
-                          className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                            marginPercent >= 70
-                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                              : marginPercent >= 50
-                              ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                              : "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                          className={`font-semibold ${
+                            parseFloat(margin) >= 70
+                              ? "text-emerald-400"
+                              : parseFloat(margin) >= 50
+                              ? "text-amber-400"
+                              : "text-rose-400"
                           }`}
                         >
-                          {marginPercent.toFixed(0)}% (${profit.toFixed(2)})
+                          {margin}%
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4 text-neutral-400 font-mono">
-                        {item.prepTimeMinutes} mins
+                      <td className="py-3 px-4">
+                        <span className="text-xs text-neutral-400">
+                          {item.modifierGroups?.length || 0} group(s)
+                        </span>
                       </td>
 
-                      {/* 86 toggle */}
-                      <td className="py-3.5 px-5 text-right">
-                        <button
-                          onClick={() => handleToggleAvailability(item)}
-                          className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                             item.isAvailable
-                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40"
-                              : "bg-rose-500/20 text-rose-400 border-rose-500/50 hover:bg-emerald-500/20 hover:text-emerald-300"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                           }`}
                         >
-                          <span>{item.isAvailable ? "Available" : "86'd Out"}</span>
+                          {item.isAvailable ? "Available" : "86'd (Out of Stock)"}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-5 text-right">
+                        <button
+                          onClick={() => handleToggleAvailability(item)}
+                          className={`px-3 py-1 rounded-xl text-xs font-semibold transition ${
+                            item.isAvailable
+                              ? "bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 text-neutral-300"
+                              : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-neutral-950"
+                          }`}
+                        >
+                          {item.isAvailable ? "Mark 86'd" : "Restock Item"}
                         </button>
                       </td>
                     </tr>
@@ -358,6 +493,90 @@ export default function MenuManager({
           </div>
         </div>
       </div>
+
+      {/* New Category Modal */}
+      {isNewCategoryOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+            <button
+              onClick={() => setIsNewCategoryOpen(false)}
+              className="absolute right-5 top-5 p-2 rounded-full text-neutral-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2.5 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <FolderPlus className="w-4 h-4" />
+              </div>
+              <h3 className="text-lg font-bold text-neutral-100">Create Menu Category</h3>
+            </div>
+            <p className="text-xs text-neutral-400 mb-5">
+              Add a dynamic category to organize dishes, drinks, and POS filters.
+            </p>
+
+            <form onSubmit={handleCreateCategory} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Signature Mocktails, Artisanal Pizzas, Desserts"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-2">
+                  Category Icon
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {CATEGORY_ICONS.map((item) => {
+                    const Icon = item.icon;
+                    const isSelected = newCatIcon === item.name;
+                    return (
+                      <button
+                        key={item.name}
+                        type="button"
+                        onClick={() => setNewCatIcon(item.name)}
+                        className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition ${
+                          isSelected
+                            ? "bg-amber-500/20 border-amber-500 text-amber-400 ring-1 ring-amber-500/50"
+                            : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                        }`}
+                        title={item.name}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setIsNewCategoryOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCatSubmitting}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20"
+                >
+                  {isCatSubmitting ? "Creating..." : "Create Category"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* New Menu Item Modal */}
       {isNewItemOpen && (
@@ -370,20 +589,20 @@ export default function MenuManager({
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-lg font-bold text-neutral-100 mb-1">Create Menu Offering</h3>
+            <h3 className="text-lg font-bold text-neutral-100 mb-1">Add New Menu Item</h3>
             <p className="text-xs text-neutral-400 mb-5">
-              Set title, category, retail pricing, cost, and custom modifiers
+              Add a new dish, drink, or retail package to your POS catalog.
             </p>
 
             <form onSubmit={handleCreateItem} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Item Title
+                  Item Name *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Lavender Honey Cold Brew"
+                  placeholder="e.g. Vanilla Cloud Cold Brew, Truffle Eggs Benedict"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
@@ -406,31 +625,60 @@ export default function MenuManager({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Category
+                    Category *
                   </label>
-                  <select
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  {!isInlineNewCat ? (
+                    <select
+                      value={categoryId}
+                      onChange={(e) => {
+                        if (e.target.value === "__NEW__") {
+                          setIsInlineNewCat(true);
+                        } else {
+                          setCategoryId(e.target.value);
+                        }
+                      }}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                      <option value="__NEW__">+ Add New Category...</option>
+                    </select>
+                  ) : (
+                    <div className="flex items-center space-x-1.5">
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Seasonal Drinks"
+                        value={inlineCatName}
+                        onChange={(e) => setInlineCatName(e.target.value)}
+                        className="w-full bg-neutral-900 border border-amber-500/50 rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsInlineNewCat(false)}
+                        className="p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Prep Time (Minutes)
+                    Selling Price ($) *
                   </label>
                   <input
                     type="number"
-                    min="1"
-                    value={prepTime}
-                    onChange={(e) => setPrepTime(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 font-mono"
                   />
                 </div>
               </div>
@@ -438,37 +686,34 @@ export default function MenuManager({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Menu Retail Price ($)
+                    Cost Price / COGS ($)
                   </label>
                   <input
                     type="number"
-                    step="0.05"
-                    required
-                    placeholder="e.g. 5.75"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={costPrice}
+                    onChange={(e) => setCostPrice(e.target.value)}
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 font-mono"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Ingredient Cost Price ($)
+                    Kitchen Prep Time (mins)
                   </label>
                   <input
                     type="number"
-                    step="0.05"
-                    placeholder="e.g. 1.25"
-                    value={costPrice}
-                    onChange={(e) => setCostPrice(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 font-mono"
+                    value={prepTime}
+                    onChange={(e) => setPrepTime(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Photo URL (Optional)
+                  Image URL
                 </label>
                 <input
                   type="url"
@@ -479,40 +724,43 @@ export default function MenuManager({
                 />
               </div>
 
-              {/* Modifier Group toggles */}
+              {/* Modifier Groups checkboxes */}
               {modifierGroups.length > 0 && (
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1.5">
-                    Attach Modifier Groups
+                  <label className="text-xs font-semibold text-neutral-300 block mb-2">
+                    Attach Customization Groups
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {modifierGroups.map((mg) => {
-                      const isChecked = selectedModGroups.includes(mg.id);
+                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800">
+                    {modifierGroups.map((group) => {
+                      const isChecked = selectedModGroups.includes(group.id);
                       return (
-                        <button
-                          key={mg.id}
-                          type="button"
-                          onClick={() => {
-                            playSound("tap");
-                            setSelectedModGroups((prev) =>
-                              isChecked ? prev.filter((id) => id !== mg.id) : [...prev, mg.id]
-                            );
-                          }}
-                          className={`p-2.5 rounded-xl border text-xs text-left transition ${
-                            isChecked
-                              ? "bg-amber-500/20 border-amber-500 text-amber-300 font-bold"
-                              : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200"
-                          }`}
+                        <label
+                          key={group.id}
+                          className="flex items-center space-x-2 text-xs text-neutral-300 cursor-pointer select-none"
                         >
-                          {mg.name} ({mg.options.length} opts)
-                        </button>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedModGroups([...selectedModGroups, group.id]);
+                              } else {
+                                setSelectedModGroups(
+                                  selectedModGroups.filter((id) => id !== group.id)
+                                );
+                              }
+                            }}
+                            className="rounded bg-neutral-800 border-neutral-700 text-amber-500 focus:ring-0"
+                          />
+                          <span className="truncate">{group.name}</span>
+                        </label>
                       );
                     })}
                   </div>
                 </div>
               )}
 
-              <div className="pt-3 flex justify-end space-x-2">
+              <div className="pt-3 flex justify-end space-x-2 border-t border-neutral-800">
                 <button
                   type="button"
                   onClick={() => setIsNewItemOpen(false)}
@@ -522,9 +770,10 @@ export default function MenuManager({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20"
+                  disabled={isItemSubmitting}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition"
                 >
-                  Publish Offering
+                  {isItemSubmitting ? "Creating..." : "Save Menu Item"}
                 </button>
               </div>
             </form>
