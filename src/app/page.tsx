@@ -182,7 +182,7 @@ export default function Home() {
           <span className="font-mono font-extrabold text-base">AC</span>
         </div>
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-          Loading Artisan Cafe &amp; Restaurant Suite...
+          Loading Lilly&apos;s Restaurant &amp; Cafe...
         </p>
       </div>
     );

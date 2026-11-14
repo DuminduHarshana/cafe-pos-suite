@@ -75,7 +75,7 @@ export default function Navbar({
         <div>
           <div className="flex items-center space-x-2">
             <span className="font-bold text-base tracking-wide bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent">
-              ARTISAN CAFE
+              LILLY&apos;S RESTAURANT &amp; CAFE
             </span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
               PRO POS

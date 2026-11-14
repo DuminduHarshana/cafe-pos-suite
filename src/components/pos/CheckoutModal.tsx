@@ -279,7 +279,7 @@ export default function CheckoutModal({
               {/* Dynamic QR Code representation */}
               <div className="w-36 h-36 bg-white rounded-2xl mx-auto p-2 flex items-center justify-center shadow-lg">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=PAY-${grandTotal.toFixed(2)}-ARTISAN-CAFE`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=PAY-${grandTotal.toFixed(2)}-LILLYS-RESTAURANT-CAFE`}
                   alt="Payment QR"
                   className="w-full h-full object-contain"
                 />

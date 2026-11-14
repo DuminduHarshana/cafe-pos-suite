@@ -14,13 +14,13 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Artisan Cafe POS & Restaurant Manager",
+  title: "Lilly's Restaurant & Cafe - POS System",
   description: "End-to-End iPad/Tablet/Mobile POS and Web-Hosted Restaurant Management Suite",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Cafe POS",
+    title: "Lilly's POS",
   },
 };
 

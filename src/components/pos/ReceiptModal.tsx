@@ -67,7 +67,7 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
             {/* Serrated zigzag cut illusion at top */}
             <div className="text-center space-y-1 mb-4 border-b border-neutral-300 pb-3">
               <h2 className="text-sm font-extrabold tracking-widest uppercase">
-                ARTISAN CAFE &amp; ROASTERY
+                LILLY&apos;S RESTAURANT &amp; CAFE
               </h2>
               <p className="text-[10px] text-neutral-600">742 Evergreen Terrace &bull; Suite B</p>
               <p className="text-[10px] text-neutral-600">Tel: (555) 438-2940</p>

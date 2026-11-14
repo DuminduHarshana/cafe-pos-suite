@@ -7,7 +7,7 @@ import {
   generateTestReceiptBytes,
 } from "./escpos";
 
-const STORAGE_KEY = "artisan_pos_printer_settings";
+const STORAGE_KEY = "lillys_pos_printer_settings";
 
 export function getStoredPrinterSettings(): PrinterSettings {
   if (typeof window === "undefined") return DEFAULT_PRINTER_SETTINGS;

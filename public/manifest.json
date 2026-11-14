@@ -1,7 +1,7 @@
 {
-  "name": "Artisan Cafe POS & Restaurant Suite",
-  "short_name": "Cafe POS",
-  "description": "End-to-End Modern Cafe Point of Sale & Restaurant Management System",
+  "name": "Lilly's Restaurant & Cafe - POS",
+  "short_name": "Lilly's POS",
+  "description": "Lilly's Restaurant & Cafe — Full-featured Point of Sale & Restaurant Management System",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",

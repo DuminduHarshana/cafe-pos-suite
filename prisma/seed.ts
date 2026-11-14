@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding database with artisan cafe & restaurant data...");
+  console.log("Seeding database with Lilly's Restaurant & Cafe data...");
 
   // 1. Clean up existing data in reverse order
   await prisma.orderItem.deleteMany();
@@ -57,7 +57,7 @@ async function main() {
       currentStock: 18.5,
       minStockAlert: 5.0,
       costPerUnit: 24.0,
-      supplierName: "Artisan Roasters Guild",
+      supplierName: "Lilly's Roasters Guild",
     },
   });
 
