@@ -65,3 +65,4 @@ export function subscribeStoreSettings(callback: (settings: StoreSettings) => vo
     window.removeEventListener("storage", handler);
   };
 }
+
