@@ -14,6 +14,7 @@ import {
 import confetti from "canvas-confetti";
 import { Order } from "@/types";
 import { playSound } from "@/lib/sound";
+import { formatCurrency } from "@/lib/currency";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -56,10 +57,10 @@ export default function CheckoutModal({
 
   const quickCashOptions = [
     Math.ceil(grandTotal),
-    Math.ceil(grandTotal / 5) * 5,
-    Math.ceil(grandTotal / 10) * 10,
-    50,
-    100,
+    Math.ceil(grandTotal / 500) * 500 || 500,
+    1000,
+    2000,
+    5000,
   ].filter((v, i, a) => v >= grandTotal && a.indexOf(v) === i).slice(0, 4);
 
   const changeDue = Math.max(0, cashTendered - grandTotal);
@@ -211,7 +212,7 @@ export default function CheckoutModal({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-neutral-400">Quick Cash Presets:</span>
                 <span className="text-xs font-mono text-neutral-300">
-                  Due: ${grandTotal.toFixed(2)}
+                  Due: {formatCurrency(grandTotal)}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-2">
@@ -228,7 +229,7 @@ export default function CheckoutModal({
                         : "bg-neutral-900 border-neutral-800 text-neutral-300 hover:border-neutral-700"
                     }`}
                   >
-                    ${amount}
+                    Rs. {amount}
                   </button>
                 ))}
               </div>
@@ -238,7 +239,7 @@ export default function CheckoutModal({
                 <div className="bg-neutral-900 p-3 rounded-xl border border-neutral-800">
                   <span className="text-[10px] text-neutral-400 block mb-1">Tendered</span>
                   <div className="flex items-center">
-                    <span className="text-neutral-400 font-mono text-sm mr-1">$</span>
+                    <span className="text-neutral-400 font-mono text-xs mr-1">Rs.</span>
                     <input
                       type="number"
                       step="0.01"
@@ -253,7 +254,7 @@ export default function CheckoutModal({
                 <div className="bg-neutral-900 p-3 rounded-xl border border-neutral-800">
                   <span className="text-[10px] text-neutral-400 block mb-1">Change Due</span>
                   <div className="font-mono font-bold text-base text-emerald-400">
-                    ${changeDue.toFixed(2)}
+                    {formatCurrency(changeDue)}
                   </div>
                 </div>
               </div>
@@ -317,7 +318,7 @@ export default function CheckoutModal({
               <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between items-center">
                 <span className="text-xs text-neutral-300">Each Guest Pays:</span>
                 <span className="font-mono text-lg font-extrabold text-amber-400">
-                  ${(grandTotal / splitCount).toFixed(2)}
+                  {formatCurrency(grandTotal / splitCount)}
                 </span>
               </div>
             </div>
@@ -327,27 +328,27 @@ export default function CheckoutModal({
           <div className="space-y-1.5 pt-2 border-t border-neutral-800/80 text-xs">
             <div className="flex justify-between text-neutral-400">
               <span>Subtotal</span>
-              <span className="font-mono">${subtotal.toFixed(2)}</span>
+              <span className="font-mono">{formatCurrency(subtotal)}</span>
             </div>
             {discountVal > 0 && (
               <div className="flex justify-between text-emerald-400">
                 <span>Discount ({discountRate}%)</span>
-                <span className="font-mono">-${discountVal.toFixed(2)}</span>
+                <span className="font-mono">-{formatCurrency(discountVal)}</span>
               </div>
             )}
             <div className="flex justify-between text-neutral-400">
-              <span>Tax (8%)</span>
-              <span className="font-mono">${tax.toFixed(2)}</span>
+              <span>Tax (SSCL/VAT)</span>
+              <span className="font-mono">{formatCurrency(tax)}</span>
             </div>
             {tipAmount > 0 && (
               <div className="flex justify-between text-neutral-400">
-                <span>Tip</span>
-                <span className="font-mono">${tipAmount.toFixed(2)}</span>
+                <span>Tip / Service</span>
+                <span className="font-mono">{formatCurrency(tipAmount)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-extrabold text-neutral-100 pt-2 border-t border-neutral-800">
               <span>Total Payable</span>
-              <span className="font-mono text-amber-400">${grandTotal.toFixed(2)}</span>
+              <span className="font-mono text-amber-400">{formatCurrency(grandTotal)}</span>
             </div>
           </div>
         </div>
@@ -366,7 +367,7 @@ export default function CheckoutModal({
             className="flex-1 py-3 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-neutral-950 font-bold text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 active:scale-98 transition disabled:opacity-50"
           >
             <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-            <span>{isProcessing ? "Processing Tender..." : `Charge $${grandTotal.toFixed(2)}`}</span>
+            <span>{isProcessing ? "Processing Tender..." : `Charge ${formatCurrency(grandTotal)}`}</span>
           </button>
         </div>
       </div>

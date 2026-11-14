@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Order } from "@/types";
 import { playSound } from "@/lib/sound";
+import { formatCurrency } from "@/lib/currency";
 
 interface AnalyticsDashboardProps {
   analytics: {
@@ -68,7 +69,7 @@ export default function AnalyticsDashboard({
             <div>
               <span className="text-xs font-semibold text-neutral-400">Total Net Revenue</span>
               <p className="text-2xl font-extrabold text-neutral-100 font-mono mt-1">
-                ${metrics.totalRevenue.toFixed(2)}
+                {formatCurrency(metrics.totalRevenue)}
               </p>
               <span className="text-[11px] text-emerald-400 flex items-center space-x-1 mt-1 font-semibold">
                 <ArrowUpRight className="w-3.5 h-3.5" />
@@ -99,7 +100,7 @@ export default function AnalyticsDashboard({
             <div>
               <span className="text-xs font-semibold text-neutral-400">Average Spend / Ticket</span>
               <p className="text-2xl font-extrabold text-neutral-100 font-mono mt-1">
-                ${metrics.avgTicket.toFixed(2)}
+                {formatCurrency(metrics.avgTicket)}
               </p>
               <span className="text-[11px] text-neutral-400 mt-1 block">
                 Per dine-in &amp; takeaway guest
@@ -114,7 +115,7 @@ export default function AnalyticsDashboard({
             <div>
               <span className="text-xs font-semibold text-neutral-400">Staff Tips &amp; Gratuity</span>
               <p className="text-2xl font-extrabold text-neutral-100 font-mono mt-1">
-                ${metrics.totalTips.toFixed(2)}
+                {formatCurrency(metrics.totalTips)}
               </p>
               <span className="text-[11px] text-amber-400 mt-1 block font-semibold">
                 Direct to barista &amp; wait pool
@@ -151,7 +152,7 @@ export default function AnalyticsDashboard({
                           <span>{item.name}</span>
                         </span>
                         <span className="font-mono font-bold text-neutral-100">
-                          {item.count} sold &bull; ${item.revenue.toFixed(2)}
+                          {item.count} sold &bull; {formatCurrency(item.revenue)}
                         </span>
                       </div>
                       <div className="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
@@ -195,7 +196,7 @@ export default function AnalyticsDashboard({
                         {m.label}
                       </span>
                       <span className="font-mono font-bold text-sm text-neutral-100 block mt-0.5">
-                        ${amount.toFixed(2)}
+                        {formatCurrency(amount)}
                       </span>
                       <span className="text-[10px] text-neutral-500 mt-0.5 block">
                         {share}% of revenue
@@ -254,7 +255,7 @@ export default function AnalyticsDashboard({
                       {o.paymentMethod ? o.paymentMethod.replace("_", " ") : "CARD"}
                     </td>
                     <td className="py-3 px-4 font-mono font-bold text-amber-400">
-                      ${o.total.toFixed(2)}
+                      {formatCurrency(o.total)}
                     </td>
                     <td className="py-3 px-5 text-right">
                       <span

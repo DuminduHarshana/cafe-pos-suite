@@ -5,6 +5,7 @@ import { X, Printer, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Order } from "@/types";
 import { playSound } from "@/lib/sound";
 import { printReceipt } from "@/lib/printer";
+import { formatCurrency } from "@/lib/currency";
 
 interface ReceiptModalProps {
   order: Order | null;
@@ -121,7 +122,7 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
                       <span>
                         {item.quantity}x {item.menuItemName}
                       </span>
-                      <span>${item.total.toFixed(2)}</span>
+                      <span>{formatCurrency(item.total)}</span>
                     </div>
                     {modifiers.length > 0 && (
                       <p className="text-[9px] text-neutral-500 pl-4">
@@ -142,27 +143,27 @@ export default function ReceiptModal({ order, onClose }: ReceiptModalProps) {
             <div className="space-y-1 text-[11px] mb-4 border-b border-neutral-300 pb-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>${order.subtotal.toFixed(2)}</span>
+                <span>{formatCurrency(order.subtotal)}</span>
               </div>
               {order.discount > 0 && (
                 <div className="flex justify-between text-emerald-700">
                   <span>Discount</span>
-                  <span>-${order.discount.toFixed(2)}</span>
+                  <span>-{formatCurrency(order.discount)}</span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span>Tax (8%)</span>
-                <span>${order.tax.toFixed(2)}</span>
+                <span>Tax (SSCL/VAT)</span>
+                <span>{formatCurrency(order.tax)}</span>
               </div>
               {order.tip > 0 && (
                 <div className="flex justify-between">
-                  <span>Tip / Gratuity</span>
-                  <span>${order.tip.toFixed(2)}</span>
+                  <span>Service / Tip</span>
+                  <span>{formatCurrency(order.tip)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-sm pt-1 border-t border-dashed border-neutral-400">
                 <span>TOTAL</span>
-                <span>${order.total.toFixed(2)}</span>
+                <span>{formatCurrency(order.total)}</span>
               </div>
             </div>
 

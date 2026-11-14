@@ -222,7 +222,7 @@ export function generateThermalReceiptBytes(
 
   for (const item of order.items) {
     const itemLeft = `${item.quantity}x ${item.menuItemName}`;
-    const itemRight = `$${item.total.toFixed(2)}`;
+    const itemRight = `Rs. ${item.total.toFixed(2)}`;
     b.twoColumnLine(itemLeft, itemRight);
 
     // Modifiers
@@ -243,19 +243,19 @@ export function generateThermalReceiptBytes(
   b.divider("-");
 
   // Totals
-  b.twoColumnLine("Subtotal:", `$${order.subtotal.toFixed(2)}`);
+  b.twoColumnLine("Subtotal:", `Rs. ${order.subtotal.toFixed(2)}`);
   if (order.discount > 0) {
-    b.twoColumnLine("Discount:", `-$${order.discount.toFixed(2)}`);
+    b.twoColumnLine("Discount:", `-Rs. ${order.discount.toFixed(2)}`);
   }
-  b.twoColumnLine("Tax (8%):", `$${order.tax.toFixed(2)}`);
+  b.twoColumnLine("Tax (SSCL/VAT):", `Rs. ${order.tax.toFixed(2)}`);
   if (order.tip > 0) {
-    b.twoColumnLine("Tip / Gratuity:", `$${order.tip.toFixed(2)}`);
+    b.twoColumnLine("Tip / Service:", `Rs. ${order.tip.toFixed(2)}`);
   }
 
   b.divider("=");
   b.size("double-height")
     .bold(true)
-    .twoColumnLine("TOTAL DUE:", `$${order.total.toFixed(2)}`)
+    .twoColumnLine("TOTAL DUE:", `Rs. ${order.total.toFixed(2)}`)
     .size("normal")
     .bold(false);
 

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Table } from "@/types";
 import { playSound } from "@/lib/sound";
+import { formatCurrency } from "@/lib/currency";
 
 interface TableManagerProps {
   tables: Table[];
@@ -191,7 +192,7 @@ export default function TableManager({
                     <div className="bg-neutral-900/80 p-2 rounded-xl border border-neutral-800 text-[11px] font-mono flex items-center justify-between">
                       <span className="text-neutral-300">#{activeOrder.orderNumber}</span>
                       <span className="font-bold text-amber-400">
-                        ${activeOrder.total.toFixed(2)}
+                        {formatCurrency(activeOrder.total)}
                       </span>
                     </div>
                   )}

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Plus, Minus, Clock, Check, Sparkles } from "lucide-react";
 import { MenuItem, CartItem, ModifierOption } from "@/types";
 import { playSound } from "@/lib/sound";
+import { formatCurrency } from "@/lib/currency";
 
 interface ModifierModalProps {
   item: MenuItem | null;
@@ -166,7 +167,7 @@ export default function ModifierModal({
                         </div>
                         {option.priceDelta > 0 && (
                           <span className="text-[11px] font-mono font-semibold text-neutral-400">
-                            +${option.priceDelta.toFixed(2)}
+                            +{formatCurrency(option.priceDelta)}
                           </span>
                         )}
                       </button>
@@ -224,7 +225,7 @@ export default function ModifierModal({
           >
             <span>Add to Order</span>
             <span className="font-mono text-base font-extrabold">
-              ${calculateTotal().toFixed(2)}
+              {formatCurrency(calculateTotal())}
             </span>
           </button>
         </div>

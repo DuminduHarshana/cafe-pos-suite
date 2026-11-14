@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { InventoryItem } from "@/types";
 import { playSound } from "@/lib/sound";
+import { formatCurrency } from "@/lib/currency";
 
 interface InventoryManagerProps {
   inventory: {
@@ -243,7 +244,7 @@ export default function InventoryManager({
             <div>
               <span className="text-xs font-semibold text-neutral-400">Total Stock Valuation</span>
               <p className="text-2xl font-extrabold text-neutral-100 font-mono mt-1">
-                ${inventory.stats.totalValuation.toFixed(2)}
+                {formatCurrency(inventory.stats.totalValuation)}
               </p>
               <span className="text-[11px] text-emerald-400 flex items-center space-x-1 mt-1">
                 <TrendingUp className="w-3.5 h-3.5" />
@@ -406,11 +407,11 @@ export default function InventoryManager({
                         </td>
 
                         <td className="py-3.5 px-4 font-mono text-neutral-300">
-                          ${item.costPerUnit.toFixed(2)} / {item.unit}
+                          {formatCurrency(item.costPerUnit)} / {item.unit}
                         </td>
 
                         <td className="py-3.5 px-4 font-mono font-bold text-neutral-200">
-                          ${itemValue.toFixed(2)}
+                          {formatCurrency(itemValue)}
                         </td>
 
                         <td className="py-3.5 px-4 text-neutral-400">
@@ -483,7 +484,7 @@ export default function InventoryManager({
 
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Cost per Unit ($)
+                  Cost per Unit (LKR)
                 </label>
                 <input
                   type="number"
@@ -704,7 +705,7 @@ export default function InventoryManager({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Cost per Unit ($)
+                    Cost per Unit (LKR)
                   </label>
                   <input
                     type="number"

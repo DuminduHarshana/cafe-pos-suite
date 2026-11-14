@@ -22,6 +22,7 @@ import CheckoutModal from "./CheckoutModal";
 import ReceiptModal from "./ReceiptModal";
 import { playSound } from "@/lib/sound";
 import { printReceipt, printKitchenChit, getStoredPrinterSettings } from "@/lib/printer";
+import { formatCurrency } from "@/lib/currency";
 
 interface PosStationProps {
   categories: Category[];
@@ -407,7 +408,7 @@ export default function PosStation({
                       {/* Price Row */}
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-800/60">
                         <span className="font-mono text-sm font-extrabold text-neutral-100">
-                          ${item.price.toFixed(2)}
+                          {formatCurrency(item.price)}
                         </span>
                         <div className="w-6 h-6 rounded-lg bg-neutral-800 group-hover:bg-amber-500 group-hover:text-neutral-950 text-neutral-300 flex items-center justify-center transition">
                           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -498,7 +499,7 @@ export default function PosStation({
                       {ci.menuItemName}
                     </h5>
                     <span className="font-mono text-xs font-semibold text-neutral-300">
-                      ${ci.total.toFixed(2)}
+                      {formatCurrency(ci.total)}
                     </span>
                   </div>
 
@@ -561,27 +562,27 @@ export default function PosStation({
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between text-neutral-400">
               <span>Subtotal</span>
-              <span className="font-mono text-neutral-200">${subtotal.toFixed(2)}</span>
+              <span className="font-mono text-neutral-200">{formatCurrency(subtotal)}</span>
             </div>
             {discountVal > 0 && (
               <div className="flex justify-between text-emerald-400">
                 <span>Discount ({discountRate}%)</span>
-                <span className="font-mono">-${discountVal.toFixed(2)}</span>
+                <span className="font-mono">-{formatCurrency(discountVal)}</span>
               </div>
             )}
             <div className="flex justify-between text-neutral-400">
-              <span>Tax (8% Est.)</span>
-              <span className="font-mono text-neutral-200">${tax.toFixed(2)}</span>
+              <span>Tax (SSCL/VAT)</span>
+              <span className="font-mono text-neutral-200">{formatCurrency(tax)}</span>
             </div>
             {tipAmount > 0 && (
               <div className="flex justify-between text-neutral-400">
-                <span>Tip</span>
-                <span className="font-mono text-neutral-200">${tipAmount.toFixed(2)}</span>
+                <span>Tip / Service</span>
+                <span className="font-mono text-neutral-200">{formatCurrency(tipAmount)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-extrabold text-neutral-100 pt-2 border-t border-neutral-800">
               <span>Grand Total</span>
-              <span className="font-mono text-amber-400">${total.toFixed(2)}</span>
+              <span className="font-mono text-amber-400">{formatCurrency(total)}</span>
             </div>
           </div>
 
@@ -616,7 +617,7 @@ export default function PosStation({
             >
               <span>Charge Order</span>
               <span className="font-mono text-sm font-extrabold">
-                ${total.toFixed(2)}
+                {formatCurrency(total)}
               </span>
             </button>
           </div>

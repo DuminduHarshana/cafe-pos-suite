@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Category, MenuItem, ModifierGroup } from "@/types";
 import { playSound } from "@/lib/sound";
+import { formatCurrency } from "@/lib/currency";
 
 interface MenuManagerProps {
   categories: Category[];
@@ -398,14 +399,14 @@ export default function MenuManager({
                       <td className="py-3 px-4">
                         {isEditingPrice ? (
                           <div className="flex items-center space-x-1.5">
-                            <span className="text-xs text-neutral-400">$</span>
+                            <span className="text-xs text-neutral-400">Rs.</span>
                             <input
                               type="number"
                               step="0.01"
                               autoFocus
                               value={tempPrice}
                               onChange={(e) => setTempPrice(e.target.value)}
-                              className="w-20 bg-neutral-900 border border-amber-500 rounded-lg px-2 py-1 text-xs font-mono text-neutral-100 focus:outline-none"
+                              className="w-24 bg-neutral-900 border border-amber-500 rounded-lg px-2 py-1 text-xs font-mono text-neutral-100 focus:outline-none"
                             />
                             <button
                               onClick={() => handleSavePrice(item.id)}
@@ -430,7 +431,7 @@ export default function MenuManager({
                             title="Click to quickly edit price"
                           >
                             <span className="font-mono font-bold text-neutral-100 text-sm">
-                              ${item.price.toFixed(2)}
+                              {formatCurrency(item.price)}
                             </span>
                             <Edit2 className="w-3 h-3 text-neutral-500 opacity-0 group-hover:opacity-100 transition" />
                           </div>
@@ -438,7 +439,7 @@ export default function MenuManager({
                       </td>
 
                       <td className="py-3 px-4 font-mono text-neutral-400">
-                        ${item.costPrice.toFixed(2)}
+                        {formatCurrency(item.costPrice)}
                       </td>
 
                       <td className="py-3 px-4 font-mono">
@@ -669,13 +670,13 @@ export default function MenuManager({
 
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Selling Price ($) *
+                    Selling Price (LKR) *
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    placeholder="0.00"
+                    placeholder="e.g. 500"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 font-mono"
@@ -686,12 +687,12 @@ export default function MenuManager({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Cost Price / COGS ($)
+                    Cost Price / COGS (LKR)
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
+                    placeholder="e.g. 150"
                     value={costPrice}
                     onChange={(e) => setCostPrice(e.target.value)}
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-500/50 font-mono"
