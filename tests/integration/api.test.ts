@@ -257,7 +257,57 @@ describe("API Integration Suite", () => {
     });
   });
 
-  // 5. Thermal Printing Endpoint
+  // 5. Inventory Management CRUD
+  describe("Inventory Management (CRUD)", () => {
+    let createdInventoryId: string = "";
+
+    it("GET /api/inventory returns items and stats", async () => {
+      const res = await fetch(`${BASE_URL}/api/inventory`);
+      assert.equal(res.status, 200);
+      const data = await res.json();
+      assert.ok(Array.isArray(data.items));
+      assert.ok(data.stats);
+    });
+
+    it("POST /api/inventory creates new inventory item", async () => {
+      const res = await fetch(`${BASE_URL}/api/inventory`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Test Arabica Single Origin " + Date.now(),
+          sku: "TEST-SKU-" + Date.now(),
+          category: "BEANS",
+          unit: "kg",
+          currentStock: 15.0,
+          minStockAlert: 3.0,
+          costPerUnit: 4200.0,
+          supplierName: "Ceylon Highlands",
+        }),
+      });
+      assert.equal(res.status, 201);
+      const item = await res.json();
+      assert.ok(item.id);
+      createdInventoryId = item.id;
+    });
+
+    it("DELETE /api/inventory deletes inventory item", async () => {
+      assert.ok(createdInventoryId);
+      const res = await fetch(`${BASE_URL}/api/inventory?id=${createdInventoryId}`, {
+        method: "DELETE",
+      });
+      assert.equal(res.status, 200);
+    });
+
+    it("DELETE /api/inventory handles already-deleted items idempotently", async () => {
+      assert.ok(createdInventoryId);
+      const res = await fetch(`${BASE_URL}/api/inventory?id=${createdInventoryId}`, {
+        method: "DELETE",
+      });
+      assert.equal(res.status, 200);
+    });
+  });
+
+  // 6. Thermal Printing Endpoint
   describe("Thermal Printer API", () => {
     it("POST /api/print validates missing buffer correctly with 400", async () => {
       const res = await fetch(`${BASE_URL}/api/print`, {

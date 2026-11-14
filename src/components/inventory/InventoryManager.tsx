@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Boxes,
   AlertTriangle,
@@ -35,14 +35,23 @@ export default function InventoryManager({
   inventory,
   onRefresh,
 }: InventoryManagerProps) {
+  const [localItems, setLocalItems] = useState<InventoryItem[]>(inventory?.items || []);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    setLocalItems(inventory?.items || []);
+  }, [inventory]);
 
   // Restock Modal
   const [activeItemForRestock, setActiveItemForRestock] = useState<InventoryItem | null>(null);
   const [restockQty, setRestockQty] = useState("");
   const [restockCost, setRestockCost] = useState("");
   const [restockReason, setRestockReason] = useState("Weekly Supplier Delivery");
+
+  // Delete Confirmation Modal
+  const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // New Inventory Item Modal
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
@@ -63,7 +72,7 @@ export default function InventoryManager({
   // Extract distinct categories dynamically from the inventory items
   const distinctCategories = Array.from(
     new Set(
-      inventory.items
+      localItems
         .map((i) => (i.category ? i.category.toUpperCase().trim() : ""))
         .filter(Boolean)
     )
@@ -76,7 +85,7 @@ export default function InventoryManager({
       : ["BEANS", "DAIRY", "SYRUP", "BAKERY", "PACKAGING"]),
   ];
 
-  const filteredItems = inventory.items.filter((item) => {
+  const filteredItems = localItems.filter((item) => {
     const itemCat = (item.category || "").toUpperCase();
     const matchesCat = selectedCategory === "ALL" || itemCat === selectedCategory;
     const matchesSearch =
@@ -176,20 +185,35 @@ export default function InventoryManager({
     }
   };
 
-  const handleDeleteItem = async (item: InventoryItem) => {
-    if (!confirm(`Are you sure you want to delete ${item.name} from inventory?`)) return;
-
+  // Delete Inventory Item with instant optimistic UI update
+  const handleDeleteItem = async () => {
+    if (!deletingItem) return;
+    const targetId = deletingItem.id;
+    setIsDeleting(true);
     playSound("delete");
+
+    // Instantly remove from local items list
+    setLocalItems((prev) => prev.filter((it) => it.id !== targetId));
+    setDeletingItem(null);
+
     try {
-      const res = await fetch(`/api/inventory?id=${item.id}`, {
+      const res = await fetch(`/api/inventory?id=${targetId}`, {
         method: "DELETE",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
       });
-      if (!res.ok) throw new Error("Delete failed");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete item");
+      }
       playSound("success");
       onRefresh();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      alert("Failed to delete inventory item");
+      onRefresh();
+      alert(err instanceof Error ? err.message : "Failed to delete inventory item");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -431,7 +455,10 @@ export default function InventoryManager({
                           </button>
 
                           <button
-                            onClick={() => handleDeleteItem(item)}
+                            onClick={() => {
+                              playSound("tap");
+                              setDeletingItem(item);
+                            }}
                             className="p-1.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-rose-500/15 hover:border-rose-500/30 text-neutral-500 hover:text-rose-400 transition"
                             title="Delete Item"
                           >
@@ -748,6 +775,72 @@ export default function InventoryManager({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Item Confirmation Modal */}
+      {deletingItem && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18181b] border border-neutral-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+            <button
+              onClick={() => setDeletingItem(null)}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-neutral-100 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/30 text-rose-400 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-neutral-100">Delete Inventory Item</h3>
+                <p className="text-xs text-neutral-400">Remove ingredient from recipe tracking</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 mb-6 space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-neutral-400">Item Name:</span>
+                <span className="font-bold text-neutral-100">{deletingItem.name}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-neutral-400">SKU:</span>
+                <span className="font-mono text-neutral-300">{deletingItem.sku}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-neutral-400">Current Stock:</span>
+                <span className="font-bold text-amber-400">
+                  {deletingItem.currentStock} {deletingItem.unit}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-neutral-400">Category:</span>
+                <span className="text-xs px-2 py-0.5 rounded-md bg-neutral-800 text-neutral-300 font-semibold">
+                  {deletingItem.category}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                type="button"
+                onClick={() => setDeletingItem(null)}
+                className="flex-1 py-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteItem}
+                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-lg shadow-rose-900/30 transition flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeleting ? "Deleting..." : "Delete Permanently"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

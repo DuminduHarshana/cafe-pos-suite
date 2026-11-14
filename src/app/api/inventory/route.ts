@@ -29,14 +29,23 @@ export async function GET() {
     const lowStockCount = items.filter((item) => item.currentStock <= item.minStockAlert).length;
     const totalValuation = items.reduce((acc, curr) => acc + curr.currentStock * curr.costPerUnit, 0);
 
-    return NextResponse.json({
-      items,
-      stats: {
-        totalItems: items.length,
-        lowStockCount,
-        totalValuation,
+    return NextResponse.json(
+      {
+        items,
+        stats: {
+          totalItems: items.length,
+          lowStockCount,
+          totalValuation,
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error) {
     console.error("Failed to fetch inventory:", error);
     return NextResponse.json({ error: "Failed to fetch inventory" }, { status: 500 });
@@ -161,8 +170,13 @@ export async function POST(req: Request) {
 // DELETE /api/inventory - Remove an inventory item
 export async function DELETE(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
+    const url = new URL(req.url);
+    let id = url.searchParams.get("id");
+    if (!id) {
+      const body = await req.json().catch(() => ({}));
+      id = body?.id;
+    }
+
     if (!id) {
       return NextResponse.json({ error: "Missing item ID" }, { status: 400 });
     }
