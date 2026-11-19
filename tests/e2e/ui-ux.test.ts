@@ -275,5 +275,73 @@ describe("UI/UX & Frontend Brand Verification", () => {
     assert.ok(content.includes("/display"), "Navbar must have trigger pointing to /display");
     assert.ok(content.includes("Customer-Facing Display"), "Navbar must have descriptive title for CFD");
   });
+
+  it("POS CheckoutModal implements accurate Cash Change calculation and quick cash tender presets", () => {
+    const checkoutModalPath = path.join(process.cwd(), "src", "components", "pos", "CheckoutModal.tsx");
+    assert.ok(fs.existsSync(checkoutModalPath));
+    const content = fs.readFileSync(checkoutModalPath, "utf-8");
+
+    // Cash Change logic
+    assert.ok(content.includes("quickCashOptions"), "CheckoutModal must calculate quickCashOptions presets");
+    assert.ok(content.includes("changeDue"), "CheckoutModal must calculate changeDue accurately");
+    assert.ok(content.includes("cashTendered - grandTotal"), "CheckoutModal must calculate change as cashTendered - grandTotal");
+    assert.ok(content.includes("cashTendered < grandTotal"), "CheckoutModal must detect when cash tendered is insufficient");
+    assert.ok(content.includes("Change Due"), "CheckoutModal must display Change Due to cashier");
+  });
+
+  it("KitchenDisplay implements live ticket timers and status bumping (PENDING -> PREPARING -> READY -> SERVED)", () => {
+    const kdsPath = path.join(process.cwd(), "src", "components", "kds", "KitchenDisplay.tsx");
+    assert.ok(fs.existsSync(kdsPath));
+    const content = fs.readFileSync(kdsPath, "utf-8");
+
+    assert.ok(content.includes("handleBumpStatus"), "KitchenDisplay must provide handleBumpStatus");
+    assert.ok(content.includes("PREPARING") && content.includes("READY") && content.includes("SERVED"), "Must support 3-stage kitchen progression");
+    assert.ok(content.includes("currentTime"), "KitchenDisplay must maintain live currentTime clock");
+    assert.ok(content.includes("filterType"), "KitchenDisplay must support Dine-In vs Takeaway filter tabs");
+  });
+
+  it("TableManager supports Section filtering and dynamic dining table creation", () => {
+    const tmPath = path.join(process.cwd(), "src", "components", "tables", "TableManager.tsx");
+    assert.ok(fs.existsSync(tmPath));
+    const content = fs.readFileSync(tmPath, "utf-8");
+
+    assert.ok(content.includes("selectedSection"), "TableManager must maintain selectedSection state");
+    assert.ok(content.includes("filteredTables"), "TableManager must compute filteredTables");
+    assert.ok(content.includes("handleCreateNewTable"), "TableManager must support handleCreateNewTable");
+    assert.ok(content.includes("capacity"), "TableManager must support table seating capacity");
+  });
+
+  it("Table QR Digital Menu (/menu) implements item search, category filters, and guest assistance requests", () => {
+    const menuPath = path.join(process.cwd(), "src", "app", "menu", "page.tsx");
+    assert.ok(fs.existsSync(menuPath));
+    const content = fs.readFileSync(menuPath, "utf-8");
+
+    assert.ok(content.includes("searchQuery"), "Digital menu must support live searchQuery");
+    assert.ok(content.includes("selectedCategory"), "Digital menu must support selectedCategory filtering");
+    assert.ok(content.includes("filteredItems"), "Digital menu must compute filteredItems matching search & category");
+    assert.ok(content.includes("activeItemDetails"), "Digital menu must provide item modal details");
+    assert.ok(content.includes("Call Waiter"), "Digital menu must provide Call Waiter action");
+    assert.ok(content.includes("Request Bill"), "Digital menu must provide Request Bill action");
+    assert.ok(content.includes("assistanceRequested"), "Digital menu must show confirmation toast when assistance is requested");
+  });
+
+  it("Customer-Facing Display (/display) implements real-time BroadcastChannel sync and EMVCo LankaQR payment", () => {
+    const cfdMgrPath = path.join(process.cwd(), "src", "lib", "customerDisplayManager.ts");
+    assert.ok(fs.existsSync(cfdMgrPath));
+    const mgrContent = fs.readFileSync(cfdMgrPath, "utf-8");
+
+    assert.ok(mgrContent.includes("lilly_pos_cfd"), "CFD Manager must use dedicated BroadcastChannel lilly_pos_cfd");
+    assert.ok(mgrContent.includes("generateLankaQrPayload"), "CFD Manager must implement generateLankaQrPayload");
+    assert.ok(mgrContent.includes("broadcastCfdState"), "CFD Manager must export broadcastCfdState");
+
+    const cfdPagePath = path.join(process.cwd(), "src", "app", "display", "page.tsx");
+    assert.ok(fs.existsSync(cfdPagePath));
+    const pageContent = fs.readFileSync(cfdPagePath, "utf-8");
+
+    assert.ok(pageContent.includes("subscribeCfdState"), "CFD page must subscribe to live POS changes");
+    assert.ok(pageContent.includes("QRCode.toDataURL"), "CFD page must generate live QR code on screen");
+    assert.ok(pageContent.includes("Service Charge"), "CFD page must display service charge breakdown");
+    assert.ok(pageContent.includes("Total Due"), "CFD page must display final total due to guest");
+  });
 });
 

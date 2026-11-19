@@ -105,6 +105,31 @@ describe("Customer-Facing Display Manager", () => {
     assert.ok(payload.includes("ORD2045"));
   });
 
+  it("should generate valid EMVCo LankaQR payload with integer amounts formatted to 2 decimal places", () => {
+    const payload = generateLankaQrPayload(5000, "ORD-9000");
+    assert.ok(payload.includes("5000.00"), "Amount must have 2 decimal places in EMVCo tag 54");
+    assert.ok(payload.includes("ORD9000"));
+  });
+
+  it("should broadcast PAYMENT_SUCCESS state and persist confirmation details", () => {
+    const state = broadcastCfdState({
+      status: "PAYMENT_SUCCESS",
+      orderNumber: "ORD-7711",
+      paymentMethod: "LANKAQR",
+      total: 4200,
+      customerName: "Kasun Jayasuriya",
+    });
+
+    assert.equal(state.status, "PAYMENT_SUCCESS");
+    assert.equal(state.orderNumber, "ORD-7711");
+    assert.equal(state.paymentMethod, "LANKAQR");
+    assert.equal(state.customerName, "Kasun Jayasuriya");
+
+    const retrieved = getCfdState();
+    assert.equal(retrieved.status, "PAYMENT_SUCCESS");
+    assert.equal(retrieved.orderNumber, "ORD-7711");
+  });
+
   it("should handle subscription listener cleanup without errors", () => {
     let callCount = 0;
     const unsub = subscribeCfdState((state) => {

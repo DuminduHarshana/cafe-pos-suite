@@ -114,4 +114,151 @@ describe("ESC/POS Thermal Receipt Builder", () => {
     assert.ok(text.includes("TAKEAWAY / COUNTER"));
     assert.ok(text.includes("1x Espresso"));
   });
+
+  it("should generate full Dine-In thermal customer receipt with complete breakdown and cash drawer kick", () => {
+    const fullOrder = {
+      orderNumber: "ORD-8801",
+      type: "DINE_IN",
+      customerName: "Amara Silva",
+      table: { number: "T1", name: "Ocean Terrace" },
+      staff: { name: "Milindu" },
+      createdAt: "2026-11-14T12:00:00.000Z",
+      subtotal: 2500,
+      discount: 250,
+      tax: 56.25,
+      tip: 250, // Service charge
+      total: 2556.25,
+      paymentMethod: "CASH",
+      items: [
+        {
+          quantity: 2,
+          menuItemName: "Cappuccino",
+          total: 1600,
+          selectedModifiers: JSON.stringify(["Oat Milk"]),
+          notes: "Extra chocolate dusting",
+        },
+        {
+          quantity: 1,
+          menuItemName: "Avocado Toast",
+          total: 900,
+          selectedModifiers: null,
+          notes: "Poached egg well done",
+        },
+      ],
+    };
+
+    const bytes = generateThermalReceiptBytes(fullOrder, {
+      paperWidth: "80mm",
+      openCashDrawer: true,
+      autoCut: true,
+    });
+    const text = Buffer.from(bytes).toString("latin1");
+
+    // Cafe branding
+    assert.ok(text.includes("LILLY'S RESTAURANT AND CAFE"), "Must contain uppercase store name");
+    assert.ok(text.includes("No. 33, Galle Road, Balapitiya"), "Must contain address");
+    assert.ok(text.includes("0777926230"), "Must contain phone number");
+
+    // Order identifiers
+    assert.ok(text.includes("ORDER #ORD-8801"), "Must contain order number");
+    assert.ok(text.includes("Server:"), "Must list server label");
+    assert.ok(text.includes("Milindu"), "Must list server name");
+    assert.ok(text.includes("Dining Table:"), "Must list dining table label");
+    assert.ok(text.includes("T1 (Ocean Terrace)"), "Must list table number and name");
+    assert.ok(text.includes("Amara Silva"), "Must list customer name");
+
+    // Items, modifiers, notes
+    assert.ok(text.includes("2x Cappuccino"), "Must list item with quantity");
+    assert.ok(text.includes("Rs. 1600.00"), "Must list item total");
+    assert.ok(text.includes("Oat Milk"), "Must list modifier");
+    assert.ok(text.includes("Extra chocolate dusting"), "Must list item note");
+    assert.ok(text.includes("1x Avocado Toast"), "Must list second item");
+
+    // Financial breakdown
+    assert.ok(text.includes("Subtotal:"), "Must list subtotal");
+    assert.ok(text.includes("Rs. 2500.00"), "Must format subtotal amount");
+    assert.ok(text.includes("Discount:"), "Must list discount");
+    assert.ok(text.includes("-Rs. 250.00"), "Must format discount amount");
+    assert.ok(text.includes("Tax (SSCL/VAT):"), "Must list tax label");
+    assert.ok(text.includes("Tip / Service:"), "Must list tip / service charge label");
+    assert.ok(text.includes("TOTAL DUE:"), "Must list total due");
+    assert.ok(text.includes("Rs. 2556.25"), "Must format total due amount");
+    assert.ok(text.includes("PAID VIA CASH"), "Must list payment method");
+
+    // Hardware drawer kick & cut commands
+    const byteArray = Array.from(bytes);
+    // Cash drawer kick bytes (ESC p 0 25 250)
+    assert.ok(
+      byteArray.some((b, i) => b === 0x1b && byteArray[i + 1] === 0x70),
+      "Must include ESC p cash drawer kick command for CASH payment"
+    );
+    // Paper cut command (GS V 0)
+    assert.ok(
+      byteArray.some((b, i) => b === 0x1d && byteArray[i + 1] === 0x56),
+      "Must include GS V paper cut command"
+    );
+  });
+
+  it("should omit cash drawer kick command for Card payments", () => {
+    const cardOrder = {
+      orderNumber: "ORD-8802",
+      type: "TAKEAWAY",
+      createdAt: "2026-11-14T12:30:00.000Z",
+      subtotal: 1000,
+      discount: 0,
+      tax: 25,
+      tip: 0,
+      total: 1025,
+      paymentMethod: "CARD",
+      items: [
+        {
+          quantity: 1,
+          menuItemName: "Americano",
+          total: 1000,
+        },
+      ],
+    };
+
+    const bytes = generateThermalReceiptBytes(cardOrder, {
+      paperWidth: "80mm",
+      openCashDrawer: true, // Configured for cash, but order is CARD
+      autoCut: true,
+    });
+
+    const byteArray = Array.from(bytes);
+    const hasKickDrawer = byteArray.some((b, i) => b === 0x1b && byteArray[i + 1] === 0x70);
+    assert.equal(hasKickDrawer, false, "Must NOT kick cash drawer for CARD payment");
+  });
+
+  it("should generate receipt properly formatted for 58mm compact thermal paper", () => {
+    const compactOrder = {
+      orderNumber: "ORD-8803",
+      type: "TAKEAWAY",
+      createdAt: "2026-11-14T13:00:00.000Z",
+      subtotal: 750,
+      discount: 0,
+      tax: 18.75,
+      tip: 0,
+      total: 768.75,
+      paymentMethod: "CASH",
+      items: [
+        {
+          quantity: 1,
+          menuItemName: "Flat White",
+          total: 750,
+        },
+      ],
+    };
+
+    const bytes = generateThermalReceiptBytes(compactOrder, {
+      paperWidth: "58mm",
+      openCashDrawer: false,
+      autoCut: true,
+    });
+    const text = Buffer.from(bytes).toString("latin1");
+
+    assert.ok(text.includes("ORDER #ORD-8803"));
+    assert.ok(text.includes("Flat White"));
+    assert.ok(text.includes("Rs. 768.75"));
+  });
 });
